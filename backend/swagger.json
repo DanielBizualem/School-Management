@@ -1,0 +1,286 @@
+{
+    "openapi": "3.0.0",
+    "info": {
+      "title": "School Management Portal API",
+      "version": "1.0.0",
+      "description": "Role-based API documentation for Admin, Director, Teacher, and Student portals."
+    },
+    "servers": [
+      {
+        "url": "http://localhost:5000/api",
+        "description": "Local Development Server"
+      }
+    ],
+    "components": {
+      "securitySchemes": {
+        "BearerAuth": {
+          "type": "http",
+          "scheme": "bearer",
+          "bearerFormat": "JWT",
+          "description": "Enter your short-lived Access Token here."
+        }
+      }
+    },
+    "paths": {
+      "/auth/login": {
+        "post": {
+          "summary": "User Login",
+          "tags": ["Authentication"],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["email", "password"],
+                  "properties": {
+                    "email": { "type": "string", "example": "teacher@school.com" },
+                    "password": { "type": "string", "example": "supersecretpassword" }
+                  }
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": { "description": "Login successful, tokens generated." },
+            "401": { "description": "Invalid email or password." }
+          }
+        }
+      },
+      "/auth/refresh": {
+        "post": {
+          "summary": "Refresh Session Access Token",
+          "tags": ["Authentication"],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["refreshToken"],
+                  "properties": {
+                    "refreshToken": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": { "description": "Tokens rotated successfully." },
+            "401": { "description": "Session expired or invalid refresh token." }
+          }
+        }
+      },
+      "/auth/logout": {
+        "post": {
+          "summary": "User Logout",
+          "tags": ["Authentication"],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["refreshToken"],
+                  "properties": {
+                    "refreshToken": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": { "description": "Successfully logged out." }
+          }
+        }
+      },
+      "/admin/register-student": {
+        "post": {
+          "summary": "Register a new Student profile",
+          "tags": ["Admin Operations"],
+          "security": [{ "BearerAuth": [] }],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["email", "fullName", "rollNumber"],
+                  "properties": {
+                    "email": { "type": "string", "example": "john@student.com" },
+                    "fullName": { "type": "string", "example": "John Doe" },
+                    "rollNumber": { "type": "string", "example": "STU10192" }
+                  }
+                }
+              }
+            }
+          },
+          "responses": {
+            "201": { "description": "Student registered successfully." },
+            "400": { "description": "Email or Roll Number already exists." },
+            "403": { "description": "Forbidden - Admin access required." }
+          }
+        }
+      },
+      "/admin/register-teacher": {
+        "post": {
+          "summary": "Register a new Teacher profile",
+          "tags": ["Admin Operations"],
+          "security": [{ "BearerAuth": [] }],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["email", "fullName", "phone", "department"],
+                  "properties": {
+                    "email": { "type": "string", "example": "smith@school.com" },
+                    "fullName": { "type": "string", "example": "Prof. Smith" },
+                    "phone": { "type": "string", "example": "+1234567890" },
+                    "department": { "type": "string", "example": "Computer Science" }
+                  }
+                }
+              }
+            }
+          },
+          "responses": {
+            "201": { "description": "Teacher profile initialized." }
+          }
+        }
+      },
+      "/admin/create-course": {
+        "post": {
+          "summary": "Create course and bind to a specific teacher",
+          "tags": ["Admin Operations"],
+          "security": [{ "BearerAuth": [] }],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["courseName", "courseCode", "teacherId"],
+                  "properties": {
+                    "courseName": { "type": "string", "example": "Advanced Algorithms" },
+                    "courseCode": { "type": "string", "example": "CS-302" },
+                    "teacherId": { "type": "string", "example": "65f12a34b56c7d8e901f234a" }
+                  }
+                }
+              }
+            }
+          },
+          "responses": {
+            "201": { "description": "Course configured and bound smoothly." },
+            "404": { "description": "Teacher profile not found." }
+          }
+        }
+      },
+      "/director/analytics": {
+        "get": {
+          "summary": "View global system stats and KPI metrics",
+          "tags": ["Director Operations"],
+          "security": [{ "BearerAuth": [] }],
+          "responses": {
+            "200": { "description": "Metrics retrieved successfully." }
+          }
+        }
+      },
+      "/director/attendance/{teacherId}": {
+        "post": {
+          "summary": "Log physical attendance metrics for a teacher",
+          "tags": ["Director Operations"],
+          "security": [{ "BearerAuth": [] }],
+          "parameters": [
+            {
+              "name": "teacherId",
+              "in": "path",
+              "required": true,
+              "schema": { "type": "string" }
+            }
+          ],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["date", "isPresent"],
+                  "properties": {
+                    "date": { "type": "string", "format": "date", "example": "2026-06-30" },
+                    "isPresent": { "type": "boolean", "example": true }
+                  }
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": { "description": "Attendance log updated." }
+          }
+        }
+      },
+      "/teacher/update-grade": {
+        "put": {
+          "summary": "Submit or update isolated mark for a single student",
+          "tags": ["Teacher Operations"],
+          "security": [{ "BearerAuth": [] }],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["studentId", "courseId", "mark"],
+                  "properties": {
+                    "studentId": { "type": "string", "example": "65f98b76c54d3e2f109a876b" },
+                    "courseId": { "type": "string", "example": "65f12a34b56c7d8e901f234a" },
+                    "mark": { "type": "number", "example": 88.5 }
+                  }
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": { "description": "Student grade updated smoothly." },
+            "403": { "description": "Unauthorized - Teacher not assigned to this course." }
+          }
+        }
+      },
+      "/student/dashboard": {
+        "get": {
+          "summary": "Fetch authenticated student's full profile and grades",
+          "tags": ["Student Operations"],
+          "security": [{ "BearerAuth": [] }],
+          "responses": {
+            "200": { "description": "Dashboard profile returned." }
+          }
+        }
+      },
+      "/student/complaint": {
+        "post": {
+          "summary": "Log a portal complaint about a course",
+          "tags": ["Student Operations"],
+          "security": [{ "BearerAuth": [] }],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["courseId", "subject", "description"],
+                  "properties": {
+                    "courseId": { "type": "string", "example": "65f12a34b56c7d8e901f234a" },
+                    "subject": { "type": "string", "example": "Grading Dispute" },
+                    "description": { "type": "string", "example": "Assignment 2 mark was entered incorrectly." }
+                  }
+                }
+              }
+            }
+          },
+          "responses": {
+            "201": { "description": "Complaint logged successfully under Pending status." }
+          }
+        }
+      }
+    }
+  }
