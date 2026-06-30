@@ -15,6 +15,11 @@ const studentProfileSchema = new mongoose.Schema({
             message: props => `${props.value} is not a valid student ID format! Must match 'std/_____/yy'`
         }
     },
+    gradeLevel: { 
+        type: String, 
+        required: true, 
+        enum: ["9th Grade", "10th Grade", "11th Grade", "12th Grade"] 
+    },
     enrolledCourses: [{ type: mongoose.Schema.Types.ObjectId, ref: "Course" }],
     grades: [{
         course: { type: mongoose.Schema.Types.ObjectId, ref: "Course" },

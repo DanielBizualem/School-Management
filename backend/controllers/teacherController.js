@@ -1,4 +1,4 @@
-import { submitStudentMark } from "../services/teacherService.js";
+import { submitStudentMark, getAIStudentEvaluation } from "../services/teacherService.js";
 
 export const updateStudentGrade = async (req, res) => {
     try {
@@ -27,5 +27,29 @@ export const updateStudentGrade = async (req, res) => {
         }
         
         res.status(500).json({ message: "Server error updating grade", error: err.message });
+    }
+};
+
+
+export const generateEvaluationText = async (req, res) => {
+    const { studentId, courseId } = req.body;
+
+    try {
+        if (!studentId || !courseId) {
+            return res.status(400).json({ message: "Student ID and Course ID are required." });
+        }
+
+        const evaluationReport = await getAIStudentEvaluation(studentId, courseId);
+        
+        return res.status(200).json({
+            success: true,
+            data: evaluationReport
+        });
+    } catch (error) {
+        return res.status(500).json({ 
+            success: false, 
+            message: "Could not compile AI evaluation.", 
+            error: error.message 
+        });
     }
 };
