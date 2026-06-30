@@ -1,29 +1,50 @@
 import { User } from "../models/User.js";
 import { StudentProfile } from "../models/StudentProfile.js";
+import { ParentProfile } from "../models/ParentProfile.js";
+import { Counter } from "../models/Counter.js";
 import bcrypt from "bcrypt";
 import crypto from "crypto";
 
 // FEATURE: System Admin - Registering new Students
-export const createStudentAccount = async ({ email, fullName, idSequence }) => {
-    // 1. Core Validation Rules
+export const createStudentAccount = async (studentData) => {
+    const { 
+        email, fullName, gradeLevel, gender, 
+        parentName, parentPhone, parentJob, parentAddress, parentRelation 
+    } = studentData;
+
+    // 1. Core Validation Check
     const emailExists = await User.findOne({ email });
     if (emailExists) throw new Error("EMAIL_EXISTS");
 
-    // 2. Dynamic ID Formatting Engine (std/_____/registeredyear)
-    // Grabs the last 2 digits of the current year (e.g., 2026 -> "26")
+    // 2. Atomic Auto-Increment Engine
+    // Finds the student tracker document and adds 1 to 'seq'. Creates it if it doesn't exist.
+    const counter = await Counter.findOneAndUpdate(
+        { id: "studentIdSequence" },
+        { $inc: { seq: 1 } },
+        { new: true, upsert: true }
+    );
+
+    // Get the current 2-digit year (e.g., 2026 -> "26")
     const registeredYear = new Date().getFullYear().toString().slice(-2);
-    const customStudentID = `std/${idSequence}/${registeredYear}`;
+    
+    // Formats the sequence into a 5-digit padded string (e.g., 1 -> "00001")
+    const paddedSequence = counter.seq.toString().padStart(5, "0");
+    const customStudentID = `std/${paddedSequence}/${registeredYear}`;
 
-    // Ensure this specific customized ID doesn't conflict
-    const idExists = await StudentProfile.findOne({ studentID: customStudentID });
-    if (idExists) throw new Error("STUDENT_ID_ALREADY_EXISTS");
+    // 3. Step One: Save the Family Profile Document
+    const newParent = await ParentProfile.create({
+        fullName: parentName,
+        phoneNumber: parentPhone,
+        jobType: parentJob,
+        address: parentAddress,
+        relation: parentRelation
+    });
 
-    // 3. Generate Temporary Security Credentials
+    // 4. Generate Student Password & User Credentials
     const tempPassword = crypto.randomBytes(4).toString("hex"); 
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(tempPassword, salt);
 
-    // 4. Document Initialization Loops
     const newAccount = await User.create({
         email,
         password: hashedPassword,
@@ -31,13 +52,16 @@ export const createStudentAccount = async ({ email, fullName, idSequence }) => {
         isFirstLogin: true
     });
 
+    // 5. Step Two: Instantiate Student Profile with Auto-Generated ID
     const newProfile = await StudentProfile.create({
         user: newAccount._id,
         fullName,
-        studentID: customStudentID, // Saved under the secure pattern
+        studentID: customStudentID, // Securely assigned automatically by the server
+        gradeLevel,
+        gender,
+        familyProfile: newParent._id,
         enrolledCourses: [], 
-        grades: [],
-        complaints: []
+        grades: []
     });
 
     return {
@@ -49,12 +73,16 @@ export const createStudentAccount = async ({ email, fullName, idSequence }) => {
 
 // FEATURE: Students Portal - View grades & profile information
 export const getStudentDashboard = async (userId) => {
-    const profile = await StudentProfile.findOne({ user: userId })
-        .populate("enrolledCourses")
-        .populate("grades.course", "courseName courseCode");
-    
-    if (!profile) throw new Error("PROFILE_NOT_FOUND");
-    return profile;
+    // Look up the profile by matching the 'user' field with the authenticated user ID
+    const studentProfile = await StudentProfile.findOne({ user: userId })
+        .populate("enrolledCourses", "courseName courseCode") // Brings in full course descriptions
+        .populate("grades.course", "courseName courseCode");  // Attaches course context to the marks array
+
+    if (!studentProfile) {
+        throw new Error("STUDENT_PROFILE_NOT_FOUND");
+    }
+
+    return studentProfile;
 };
 
 // FEATURE: Students Portal - Submit complaint for a clicked course

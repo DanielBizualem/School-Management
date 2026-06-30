@@ -1,11 +1,38 @@
 import { getStudentDashboard, createNewComplaint } from "../services/studentService.js";
 
-export const viewGradesAndProfile = async (req, res) => {
+export const viewMyDashboard = async (req, res) => {
+    // Securely pull the user ID from the validated JWT token payload
+    const studentUserId = req.user.id;
+
     try {
-        const profile = await getStudentDashboard(req.user.id);
-        res.status(200).json(profile);
-    } catch (err) {
-        res.status(404).json({ error: err.message });
+        const profileData = await getStudentDashboard(studentUserId);
+
+        return res.status(200).json({
+            success: true,
+            message: "Student data fetched successfully.",
+            data: {
+                fullName: profileData.fullName,
+                studentID: profileData.studentID,
+                gradeLevel: profileData.gradeLevel,
+                enrolledCourses: profileData.enrolledCourses,
+                grades: profileData.grades,       // Contains only their personal marks
+                complaints: profileData.complaints
+            }
+        });
+
+    } catch (error) {
+        if (error.message === "STUDENT_PROFILE_NOT_FOUND") {
+            return res.status(404).json({
+                success: false,
+                message: "Profile error: No student profile registration linked to this account token."
+            });
+        }
+
+        return res.status(500).json({
+            success: false,
+            message: "Internal server error occurred while loading dashboard.",
+            error: error.message
+        });
     }
 };
 

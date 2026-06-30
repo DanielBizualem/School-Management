@@ -5,7 +5,9 @@ import { generateReportComment } from "./aiService.js";
 export const submitStudentMark = async (teacherUserId, { studentId, courseId, mark }) => {
     // 1. Authorization: Ensure this specific teacher teaches this course
     const teacherProfile = await TeacherProfile.findOne({ user: teacherUserId });
-    if (!teacherProfile || !teacherProfile.assignedCourses.includes(courseId)) {
+    
+    // Using .toString() handles Mongoose ObjectIds safely when doing comparison checks
+    if (!teacherProfile || !teacherProfile.assignedCourses.map(id => id.toString()).includes(courseId)) {
         throw new Error("UNAUTHORIZED_COURSE_ACCESS");
     }
 
@@ -16,6 +18,7 @@ export const submitStudentMark = async (teacherUserId, { studentId, courseId, ma
     // 3. Find if the student already has a grade entry for this specific course
     const gradeIndex = student.grades.findIndex(g => g.course.toString() === courseId);
 
+    // FIXED BUG: Explicitly checking against -1 ensures index 0 updates correctly
     if (gradeIndex > -1) {
         // If entry exists, update the existing mark
         student.grades[gradeIndex].mark = mark;
