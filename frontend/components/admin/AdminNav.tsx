@@ -12,7 +12,8 @@ import {
     X, 
     ChevronsUpDown,
     PanelLeftClose,
-    PanelLeftOpen
+    PanelLeftOpen,
+    Settings2
 } from "lucide-react";
 
 type AdminTab = "analytics" | "students" | "courses" | "register";
@@ -32,8 +33,10 @@ export default function AdminNav({ children, activeDashboardTab, onTabChange }: 
     const navItems = [
         { label: "Dashboard Overview", id: "analytics" as const, icon: LayoutDashboard },
         { label: "Students List", id: "students" as const, icon: Users },
-        { label: "System Courses", id: "courses" as const, icon: BookOpen },
-        { label: "Register Students", id: "register" as const, icon: UserPlus }
+        { label: "Teachers List", id: "teachers" as const, icon: Users },
+        { label: "All Courses", id: "courses" as const, icon: BookOpen },
+        { label: "Register Students", id: "register" as const, icon: UserPlus },
+        { label: "Settings", id: "settings" as const, icon: Settings2 }
     ];
 
     const handleLogout = () => {

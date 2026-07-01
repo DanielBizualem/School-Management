@@ -1,10 +1,10 @@
 import { StudentProfile } from "../models/StudentProfile.js";
-import { TeacherProfile } from "../models/TeacherProfile.js";
+import { StaffProfile } from "../models/staffProfile.js";
 import { generateReportComment } from "./aiService.js";
 
 export const submitStudentMark = async (teacherUserId, { studentId, courseId, mark }) => {
     // 1. Authorization: Ensure this specific teacher teaches this course
-    const teacherProfile = await TeacherProfile.findOne({ user: teacherUserId });
+    const teacherProfile = await StaffProfile.findOne({ user: teacherUserId });
     
     // Using .toString() handles Mongoose ObjectIds safely when doing comparison checks
     if (!teacherProfile || !teacherProfile.assignedCourses.map(id => id.toString()).includes(courseId)) {

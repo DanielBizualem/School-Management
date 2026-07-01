@@ -1,9 +1,9 @@
 import { StudentProfile } from "../models/StudentProfile.js";
-import { TeacherProfile } from "../models/TeacherProfile.js";
+import { StaffProfile } from "../models/staffProfile.js";
 
 export const getSystemAnalytics = async () => {
     const totalStudents = await StudentProfile.countDocuments();
-    const totalTeachers = await TeacherProfile.countDocuments();
+    const totalTeachers = await StaffProfile.countDocuments();
     
     // Aggregating global average performance
     const gradeStats = await StudentProfile.aggregate([
@@ -19,7 +19,7 @@ export const getSystemAnalytics = async () => {
 };
 
 export const trackTeacherAttendance = async (teacherId, { date, isPresent }) => {
-    const teacher = await TeacherProfile.findById(teacherId);
+    const teacher = await StaffProfile.findById(teacherId);
     if (!teacher) throw new Error("TEACHER_NOT_FOUND");
 
     teacher.attendanceLog.push({ date: new Date(date), isPresent });

@@ -1,26 +1,109 @@
 import { User } from "../models/User.js";
-import { TeacherProfile } from "../models/TeacherProfile.js";
+import { StaffProfile } from "../models/staffProfile.js";
 import { Course } from "../models/Course.js";
 import bcrypt from "bcrypt";
 import crypto from "crypto";
+import { ParentProfile } from "../models/ParentProfile.js";
+import { Counter } from "../models/Counter.js";
+import { Resend } from 'resend';
 
-// Internal helper to handle user creation base logic
-const createBaseUser = async (email, role) => {
+
+
+export const createStudentAccount = async (studentData) => {
+    const { 
+        email, fullName, gradeLevel, gender, 
+        studentPhoto, studentDob, 
+        parentName, parentPhone, parentJob, parentAddress, parentRelation, 
+        familyPhoto, familyPersonDob 
+    } = studentData;
+
+    // 1. Core Validation Check
     const emailExists = await User.findOne({ email });
     if (emailExists) throw new Error("EMAIL_EXISTS");
 
-    const tempPassword = crypto.randomBytes(4).toString("hex");
+    // 2. Atomic Auto-Increment Engine
+    const counter = await Counter.findOneAndUpdate(
+        { id: "studentIdSequence" },
+        { $inc: { seq: 1 } },
+        { new: true, upsert: true }
+    );
+
+    const registeredYear = new Date().getFullYear().toString().slice(-2);
+    const paddedSequence = counter.seq.toString().padStart(5, "0");
+    const customStudentID = `std/${paddedSequence}/${registeredYear}`;
+
+    // 3. Save Family Profile
+    const newParent = await ParentProfile.create({
+        fullName: parentName,
+        phoneNumber: parentPhone,
+        jobType: parentJob,
+        address: parentAddress,
+        relation: parentRelation,
+        familyPhoto,
+        familyPersonDob
+    });
+
+    // 4. Generate Student Password & User Credentials
+    const tempPassword = crypto.randomBytes(4).toString("hex"); 
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(tempPassword, salt);
 
-    const account = await User.create({
+    const newAccount = await User.create({
         email,
         password: hashedPassword,
-        role,
+        role: "student",
         isFirstLogin: true
     });
 
-    return { account, tempPassword };
+    // 5. Instantiate Student Profile
+    const newProfile = await StudentProfile.create({
+        user: newAccount._id,
+        fullName,
+        studentID: customStudentID,
+        gradeLevel,
+        gender,
+        studentPhoto,
+        studentDob,
+        familyProfile: newParent._id,
+        enrolledCourses: [], 
+        grades: []
+    });
+
+    // 6. Send Email Notification via Resend
+    try {
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        await resend.emails.send({
+            from: 'noreply@yourdomain.com', // Replace with your verified Resend domain
+            to: email,
+            subject: 'Your Student Portal Credentials',
+            html: `
+                <div style="font-family: sans-serif; line-height: 1.6;">
+                    <h2>Welcome, ${fullName}!</h2>
+                    <p>Your student account has been successfully created.</p>
+                    <p><strong>Student ID:</strong> ${customStudentID}</p>
+                    <p><strong>Temporary Password:</strong> <code>${tempPassword}</code></p>
+                    <p>Please log in to the portal and change your password immediately for security.</p>
+                </div>
+            `
+        });
+    } catch (emailError) {
+        console.error("Failed to send welcome email:", emailError);
+    }
+
+    // 7. Return data for frontend PDF generation
+    return {
+        studentId: newProfile._id,
+        generatedStudentID: customStudentID,
+        fullName,
+        email,
+        studentDob,
+        gradeLevel,
+        parentName,
+        parentPhone,
+        parentRelation,
+        parentJob,
+        parentAddress
+    };
 };
 
 export const createTeacherAccount = async ({ email, fullName, phone, department }) => {
@@ -49,7 +132,7 @@ export const createNewCourse = async ({ courseName, courseCode, teacherId }) => 
     if (codeExists) throw new Error("COURSE_CODE_EXISTS");
 
     // 2. Validation: Ensure the assigned teacher actually exists
-    const teacher = await TeacherProfile.findById(teacherId);
+    const teacher = await StaffProfile.findById(teacherId);
     if (!teacher) throw new Error("TEACHER_NOT_FOUND");
 
     // 3. Create the course document and map it to the teacher
@@ -64,4 +147,34 @@ export const createNewCourse = async ({ courseName, courseCode, teacherId }) => 
     await teacher.save();
 
     return newCourse;
+};
+
+export const createAdmin = async (adminData) => {
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
+    try {
+        // 1. Create the Auth User
+        const newUser = await User.create([{ 
+            email: adminData.email, 
+            password: hashedPassword, 
+            role: "admin" 
+        }], { session });
+
+        // 2. Create the Admin Profile
+        await Admin.create([{
+            user: newUser[0]._id,
+            fullName: adminData.fullName,
+            adminID: adminData.adminID,
+            department: adminData.department,
+            phoneNumber: adminData.phoneNumber
+        }], { session });
+
+        await session.commitTransaction();
+    } catch (error) {
+        await session.abortTransaction();
+        throw error;
+    } finally {
+        session.endSession();
+    }
 };

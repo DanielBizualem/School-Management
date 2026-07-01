@@ -5,6 +5,8 @@ const studentProfileSchema = new mongoose.Schema({
     user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
     fullName: { type: String, required: true },
     studentID: { type: String, required: true, unique: true },
+    studentPhoto: { type: String },
+    studentDob: { type: Date },
     gradeLevel: { 
         type: String, 
         required: true, 

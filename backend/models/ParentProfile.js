@@ -1,24 +1,15 @@
+// models/ParentProfile.js
 import mongoose from "mongoose";
 
 const parentProfileSchema = new mongoose.Schema({
-    fullName: { 
-        type: String, 
-        required: true, 
-        trim: true 
-    },
-    phoneNumber: { 
-        type: String, 
-        required: true 
-    },
-    jobType: { 
-        type: String, 
-        required: true, 
-        placeholder: "e.g., Engineer, Trader, Teacher" 
-    },
-    address: { 
-        type: String, 
-        required: true 
-    },
+    // ADD THIS: Link to the Auth User
+    user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    fullName: { type: String, required: true, trim: true },
+    familyPhoto: { type: String },
+    familyPersonDob: { type: Date },
+    phoneNumber: { type: String, required: true },
+    jobType: { type: String, required: true },
+    address: { type: String, required: true },
     relation: { 
         type: String, 
         required: true, 
@@ -26,4 +17,4 @@ const parentProfileSchema = new mongoose.Schema({
     }
 }, { timestamps: true });
 
-export const ParentProfile = mongoose.model("ParentProfile", parentProfileSchema);
+export const ParentProfile = mongoose.models.ParentProfile || mongoose.model("ParentProfile", parentProfileSchema);

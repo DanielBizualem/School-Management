@@ -8,5 +8,6 @@ router.use(protect, authorizeRoles("student"));
 
 router.get("/dashboard",protect, authorizeRoles("student"), viewMyDashboard);
 router.post("/complaint", fileComplaint);
+//router.get("/get-all-students", protect, authorizeRoles("admin"), getAllStudents); // Admin route to fetch all students
 
 export default router;

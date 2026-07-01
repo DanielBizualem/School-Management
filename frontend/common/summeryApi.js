@@ -1,6 +1,6 @@
 export const baseURL = "http://localhost:5000";
 
-const summeryApi = {
+export const summeryApi = {
     login: {
         url: "/api/auth/login",
         method: "POST"
@@ -16,7 +16,7 @@ const summeryApi = {
         method: "POST"
     },
     getAllStudents: {
-        url: "/api/admin/students",         // Fetches the populated student data grid roster
+        url: "/api/admin/get-all-students",       // Fetches the populated student data grid roster
         method: "GET"
     },
     enrollCourse: {
@@ -24,7 +24,7 @@ const summeryApi = {
         method: "POST"
     },
     getSystemCourses: {
-        url: "/api/courses",                 // Lists available courses inside the academic directory
+        url: "/api/admin/get-all-courses",                 // Lists available courses inside the academic directory
         method: "GET"
     }
 };

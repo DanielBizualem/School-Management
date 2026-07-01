@@ -1,11 +1,31 @@
 import { createTeacherAccount, createDirectorAccount, createNewCourse } from "../services/adminService.js";
-import { createStudentAccount } from "../services/studentService.js";
+import { createStudentAccount } from "../services/adminService.js";
+import { User } from "../models/User.js";
+import { Admin } from "../models/adminProfile.js";
+import bcrypt from "bcryptjs";
+import mongoose from "mongoose";
+import { Course } from "../models/Course.js";
+import { StudentProfile } from "../models/StudentProfile.js";
 
 export const registerStudent = async (req, res) => {
+    // Start a session for the transaction
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
     try {
-        const data = await createStudentAccount(req.body);
-        res.status(201).json({ message: "Student registered!", data });
+        // Pass the session to your service function
+        const data = await createStudentAccount(req.body, { session });
+
+        // If everything succeeded, commit the changes
+        await session.commitTransaction();
+        session.endSession();
+
+        res.status(201).json({ message: "Student registered successfully!", data });
     } catch (err) {
+        // If any error occurred, abort the transaction
+        await session.abortTransaction();
+        session.endSession();
+
         res.status(400).json({ message: err.message });
     }
 };
@@ -46,5 +66,89 @@ export const addCourse = async (req, res) => {
         }
         
         res.status(500).json({ message: "Server error configuring course", error: err.message });
+    }
+};
+
+export const getAllCourses = async (req, res) => {
+    try {
+        // Fetch all courses
+        const courses = await Course.find({});
+
+        res.status(200).json({
+            success: true,
+            count: courses.length,
+            data: courses
+        });
+    } catch (error) {
+        res.status(500).json({ 
+            success: false, 
+            message: "Error fetching courses", 
+            error: error.message 
+        });
+    }
+}
+
+export const createAdmin = async (req, res) => {
+    const { email, password, fullName, adminID, department, phoneNumber, permissions } = req.body;
+
+    // Start a Mongoose session for the transaction
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
+    try {
+        // 1. Check if user already exists
+        const existingUser = await User.findOne({ email });
+        if (existingUser) {
+            return res.status(400).json({ message: "Email already registered" });
+        }
+
+        // 2. Hash the password
+        const hashedPassword = await bcrypt.hash(password, 12);
+
+        // 3. Create the User (Auth record)
+        const newUser = await User.create([{
+            email,
+            password: hashedPassword,
+            role: "admin"
+        }], { session });
+
+        // 4. Create the Admin Profile record
+        await Admin.create([{
+            user: newUser[0]._id,
+            fullName,
+            adminID,
+            department,
+            phoneNumber,
+            permissions: permissions || ["view_reports"] // Default permission
+        }], { session });
+
+        // Commit the transaction
+        await session.commitTransaction();
+        
+        res.status(201).json({ message: "Admin created successfully" });
+
+    } catch (error) {
+        // If anything fails, undo all changes
+        await session.abortTransaction();
+        res.status(500).json({ message: "Error creating admin", error: error.message });
+    } finally {
+        session.endSession();
+    }
+};
+
+export const getAllStudents = async (req, res) => {
+    try {
+        // Fetch all students and populate the user details
+        const students = await StudentProfile.find({})
+            .populate('user', 'email role') // Pulls specific fields from the User collection
+            .populate('familyProfile');      // Pulls details from the ParentProfile
+
+        res.status(200).json({
+            success: true,
+            count: students.length,
+            data: students
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: "Error fetching students", error: error.message });
     }
 };

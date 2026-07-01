@@ -4,14 +4,46 @@ import jwt from "jsonwebtoken";
 // Import your new utility helpers
 import { generateAccessToken, generateRefreshToken } from "../utils/utilsToken.js";
 
+
+import { StudentProfile } from "../models/StudentProfile.js";
+import { ParentProfile } from "../models/ParentProfile.js";
+import { StaffProfile } from "../models/staffProfile.js"; // Assuming you have this model
+import { Admin } from "../models/adminProfile.js"; // Assuming you have these models
+
+
 export const loginUser = async ({ email, password }) => {
+    // 1. Authenticate user
     const user = await User.findOne({ email });
     if (!user) throw new Error("INVALID_CREDENTIALS");
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) throw new Error("INVALID_CREDENTIALS");
 
-    // Use the utility functions here
+    // 2. Fetch specific profile based on role
+    // This allows us to return the profile data needed for the specific dashboard
+    let profile = null;
+    
+    switch (user.role) {
+        case "student":
+            profile = await StudentProfile.findOne({ user: user._id });
+            break;
+        case "parent":
+            profile = await ParentProfile.findOne({ user: user._id });
+            break;
+        case "teacher":
+            profile = await StaffProfile.findOne({ user: user._id });
+            break;
+        case "admin":
+            profile = await Admin.findOne({ user: user._id });
+            break;
+        case "director":
+            profile = await StaffProfile.findOne({ user: user._id });
+            break;
+        default:
+            profile = null;
+    }
+
+    // 3. Generate tokens
     const accessToken = generateAccessToken(user);
     const refreshToken = generateRefreshToken(user);
 
@@ -21,7 +53,13 @@ export const loginUser = async ({ email, password }) => {
     return {
         accessToken,
         refreshToken,
-        user: { id: user._id, email: user.email, role: user.role, isFirstLogin: user.isFirstLogin }
+        user: { 
+            id: user._id, 
+            email: user.email, 
+            role: user.role, 
+            isFirstLogin: user.isFirstLogin,
+            profile // Frontend now receives the profile object directly
+        }
     };
 };
 

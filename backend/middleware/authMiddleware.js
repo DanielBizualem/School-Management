@@ -10,6 +10,11 @@ export const protect = async (req, res, next) => {
             
             // VERIFY USING ACCESS SECRET
             const decoded = jwt.verify(token, process.env.JWT_ACCESS_SECRET);
+
+            if (decoded.role === 'teacher' || decoded.role === 'director') {
+                const staff = await StaffProfile.findOne({ user: decoded.id });
+                req.user.staffId = staff?._id; 
+            }
             
             req.user = { id: decoded.id, role: decoded.role };
             return next();

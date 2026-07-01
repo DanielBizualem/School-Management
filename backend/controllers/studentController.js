@@ -1,4 +1,5 @@
 import { getStudentDashboard, createNewComplaint } from "../services/studentService.js";
+//import { StudentProfile } from "../models/StudentProfile.js";
 
 export const viewMyDashboard = async (req, res) => {
     // Securely pull the user ID from the validated JWT token payload
@@ -44,3 +45,5 @@ export const fileComplaint = async (req, res) => {
         res.status(400).json({ error: err.message });
     }
 };
+
+
