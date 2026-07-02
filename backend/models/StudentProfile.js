@@ -32,4 +32,5 @@ const studentProfileSchema = new mongoose.Schema({
     }]
 }, { timestamps: true });
 
-export const StudentProfile = mongoose.model("StudentProfile", studentProfileSchema);
+
+export const StudentProfile = mongoose.models.StudentProfile || mongoose.model("StudentProfile", studentProfileSchema);

@@ -6,10 +6,11 @@ import crypto from "crypto";
 import { ParentProfile } from "../models/ParentProfile.js";
 import { Counter } from "../models/Counter.js";
 import { Resend } from 'resend';
+import {StudentProfile} from "../models/studentProfile.js";
 
 
 
-export const createStudentAccount = async (studentData) => {
+export const createStudentAccount = async (studentData, { session, tempPassword }) => {
     const { 
         email, fullName, gradeLevel, gender, 
         studentPhoto, studentDob, 
@@ -17,23 +18,23 @@ export const createStudentAccount = async (studentData) => {
         familyPhoto, familyPersonDob 
     } = studentData;
 
-    // 1. Core Validation Check
-    const emailExists = await User.findOne({ email });
+    // 1. Validation Check (Pass session)
+    const emailExists = await User.findOne({ email }).session(session);
     if (emailExists) throw new Error("EMAIL_EXISTS");
 
-    // 2. Atomic Auto-Increment Engine
+    // 2. Atomic Auto-Increment Engine (Pass session)
     const counter = await Counter.findOneAndUpdate(
         { id: "studentIdSequence" },
         { $inc: { seq: 1 } },
-        { new: true, upsert: true }
+        { new: true, upsert: true, session }
     );
 
     const registeredYear = new Date().getFullYear().toString().slice(-2);
     const paddedSequence = counter.seq.toString().padStart(5, "0");
     const customStudentID = `std/${paddedSequence}/${registeredYear}`;
 
-    // 3. Save Family Profile
-    const newParent = await ParentProfile.create({
+    // 3. Save Parent Profile (Using array for transaction compatibility)
+    const [newParent] = await ParentProfile.create([{
         fullName: parentName,
         phoneNumber: parentPhone,
         jobType: parentJob,
@@ -41,22 +42,21 @@ export const createStudentAccount = async (studentData) => {
         relation: parentRelation,
         familyPhoto,
         familyPersonDob
-    });
+    }], { session });
 
-    // 4. Generate Student Password & User Credentials
-    const tempPassword = crypto.randomBytes(4).toString("hex"); 
+    // 4. Hash Password & Create User
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(tempPassword, salt);
 
-    const newAccount = await User.create({
+    const [newAccount] = await User.create([{
         email,
         password: hashedPassword,
         role: "student",
         isFirstLogin: true
-    });
+    }], { session });
 
     // 5. Instantiate Student Profile
-    const newProfile = await StudentProfile.create({
+    const [newProfile] = await StudentProfile.create([{
         user: newAccount._id,
         fullName,
         studentID: customStudentID,
@@ -64,46 +64,10 @@ export const createStudentAccount = async (studentData) => {
         gender,
         studentPhoto,
         studentDob,
-        familyProfile: newParent._id,
-        enrolledCourses: [], 
-        grades: []
-    });
+        familyProfile: newParent._id
+    }], { session });
 
-    // 6. Send Email Notification via Resend
-    try {
-        const resend = new Resend(process.env.RESEND_API_KEY);
-        await resend.emails.send({
-            from: 'noreply@yourdomain.com', // Replace with your verified Resend domain
-            to: email,
-            subject: 'Your Student Portal Credentials',
-            html: `
-                <div style="font-family: sans-serif; line-height: 1.6;">
-                    <h2>Welcome, ${fullName}!</h2>
-                    <p>Your student account has been successfully created.</p>
-                    <p><strong>Student ID:</strong> ${customStudentID}</p>
-                    <p><strong>Temporary Password:</strong> <code>${tempPassword}</code></p>
-                    <p>Please log in to the portal and change your password immediately for security.</p>
-                </div>
-            `
-        });
-    } catch (emailError) {
-        console.error("Failed to send welcome email:", emailError);
-    }
-
-    // 7. Return data for frontend PDF generation
-    return {
-        studentId: newProfile._id,
-        generatedStudentID: customStudentID,
-        fullName,
-        email,
-        studentDob,
-        gradeLevel,
-        parentName,
-        parentPhone,
-        parentRelation,
-        parentJob,
-        parentAddress
-    };
+    return { newProfile, customStudentID };
 };
 
 export const createTeacherAccount = async ({ email, fullName, phone, department }) => {

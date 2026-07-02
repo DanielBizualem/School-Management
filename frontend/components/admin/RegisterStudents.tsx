@@ -4,6 +4,8 @@ import React, { useState } from "react";
 import { registerStudentAPI } from "@/services/adminApi";
 import { jsPDF } from "jspdf";
 import "jspdf-autotable";
+import Axios from "@/utils/Axios";
+import summeryApi from "@/common/summeryApi";
 
 interface RegisterStudentProps {
     onSuccess: () => void;
@@ -17,6 +19,10 @@ export default function RegisterStudent({ onSuccess }: RegisterStudentProps): Re
         studentPhoto: "", studentDob: "",
         parentName: "", parentPhone: "", parentJob: "", parentAddress: "", parentRelation: "Father" as const,
         familyPhoto: "", familyPersonDob: ""
+    });
+    const [files, setFiles] = useState<{ studentPhoto: File | null; familyPhoto: File | null }>({
+        studentPhoto: null,
+        familyPhoto: null
     });
 
     const [previews, setPreviews] = useState<{ studentPhoto: string | null; familyPhoto: string | null }>({
@@ -46,33 +52,44 @@ export default function RegisterStudent({ onSuccess }: RegisterStudentProps): Re
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setActionLoading(true);
+    
+        const formData = new FormData();
+        
+        // Append all text fields
+        Object.entries(form).forEach(([key, value]) => {
+            formData.append(key, value as string);
+        });
+    
+        // Append the actual files
+        if (files.studentPhoto) formData.append("studentPhoto", files.studentPhoto);
+        if (files.familyPhoto) formData.append("familyPhoto", files.familyPhoto);
+    
         try {
-            const res = await registerStudentAPI(form);
-            downloadRegistrationPDF(form, res.generatedStudentID);
-            alert("Registration Successful! Student details have been saved and email sent.");
+            // Now you send the whole bundle to your register-student endpoint
+            
+            const res = await registerStudentAPI(formData);
+    
+            downloadRegistrationPDF(form, res.data.data.customStudentID);
+            alert("Registration Successful!");
             onSuccess();
         } catch (err) {
-            alert("Registration failed. Please check your network and try again.");
+            console.error(err);
+            alert("Registration failed. Please try again.");
         } finally {
             setActionLoading(false);
         }
     };
 
-    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, field: "studentPhoto" | "familyPhoto") => {
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, field: "studentPhoto" | "familyPhoto") => {
         const file = e.target.files?.[0];
         if (file) {
+            // Save file for submission later
+            setFiles(prev => ({ ...prev, [field]: file }));
+            
+            // Save preview for UI
             const reader = new FileReader();
             reader.onloadend = () => setPreviews(prev => ({ ...prev, [field]: reader.result as string }));
             reader.readAsDataURL(file);
-            setActionLoading(true);
-            try {
-                const formData = new FormData();
-                formData.append("file", file);
-                const response = await fetch("http://localhost:5000/api/upload", { method: "POST", body: formData });
-                const data = await response.json();
-                setForm(prev => ({ ...prev, [field]: data.url }));
-            } catch (err) { alert("Image upload failed."); }
-            finally { setActionLoading(false); }
         }
     };
 

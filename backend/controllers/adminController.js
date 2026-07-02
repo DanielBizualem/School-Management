@@ -5,28 +5,44 @@ import { Admin } from "../models/adminProfile.js";
 import bcrypt from "bcryptjs";
 import mongoose from "mongoose";
 import { Course } from "../models/Course.js";
-import { StudentProfile } from "../models/StudentProfile.js";
+import { StudentProfile } from "../models/studentProfile.js";
+import { sendTemporaryPasswordEmail } from "../utils/sendEmail.js";
+import crypto from 'crypto';
 
 export const registerStudent = async (req, res) => {
-    // Start a session for the transaction
     const session = await mongoose.startSession();
     session.startTransaction();
 
     try {
-        // Pass the session to your service function
-        const data = await createStudentAccount(req.body, { session });
+        // 1. Generate temp password in controller
+        const tempPassword = crypto.randomBytes(4).toString("hex");
 
-        // If everything succeeded, commit the changes
+        // 2. Pass session and password to service
+        const { newProfile, customStudentID } = await createStudentAccount(
+            req.body, 
+            { session, tempPassword }
+        );
+
+        // 3. Commit the transaction
         await session.commitTransaction();
-        session.endSession();
 
-        res.status(201).json({ message: "Student registered successfully!", data });
+        // 4. Send email ONLY after success
+        try {
+            await sendTemporaryPasswordEmail(req.body.email, tempPassword);
+        } catch (emailErr) {
+            console.error("Database success, but email failed:", emailErr);
+        }
+
+        res.status(201).json({ 
+            message: "Student registered successfully!", 
+            data: { ...newProfile.toObject(), customStudentID } 
+        });
     } catch (err) {
-        // If any error occurred, abort the transaction
+        // 5. Rollback on failure
         await session.abortTransaction();
-        session.endSession();
-
         res.status(400).json({ message: err.message });
+    } finally {
+        session.endSession();
     }
 };
 

@@ -1,11 +1,11 @@
 import Axios from "@/utils/Axios";
 import summeryApi from "@/common/summeryApi";
 
-export const registerStudentAPI = async (studentData: any) => {
+export const registerStudentAPI = async (formData: FormData) => {
     const response = await Axios({
         method: summeryApi.registerStudent.method,
         url: summeryApi.registerStudent.url,
-        data: studentData
+        data: formData, // Axios detects this is FormData and handles the header!
     });
     return response.data;
 };
