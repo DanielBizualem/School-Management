@@ -23,6 +23,10 @@ export const summeryApi = {
         url: "/api/admin/enroll-course",     // Assigns a student record pointer to a target course ID
         method: "POST"
     },
+    addCourse: {
+        url: "/api/admin/add-course",          // Adds a new course to the academic directory
+        method: "POST"
+    },
     getSystemCourses: {
         url: "/api/admin/get-all-courses",                 // Lists available courses inside the academic directory
         method: "GET"

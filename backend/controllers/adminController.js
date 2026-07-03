@@ -14,31 +14,27 @@ export const registerStudent = async (req, res) => {
     session.startTransaction();
 
     try {
-        // 1. Generate temp password in controller
         const tempPassword = crypto.randomBytes(4).toString("hex");
 
-        // 2. Pass session and password to service
         const { newProfile, customStudentID } = await createStudentAccount(
             req.body, 
             { session, tempPassword }
         );
 
-        // 3. Commit the transaction
         await session.commitTransaction();
 
-        // 4. Send email ONLY after success
-        try {
-            await sendTemporaryPasswordEmail(req.body.email, tempPassword);
-        } catch (emailErr) {
-            console.error("Database success, but email failed:", emailErr);
-        }
+        // REMOVED: The call to sendTemporaryPasswordEmail(...)
 
+        // UPDATED: Include tempPassword in the response data
         res.status(201).json({ 
             message: "Student registered successfully!", 
-            data: { ...newProfile.toObject(), customStudentID } 
+            data: { 
+                ...newProfile.toObject(), 
+                customStudentID,
+                tempPassword // Now it will be available in res.data.data
+            } 
         });
     } catch (err) {
-        // 5. Rollback on failure
         await session.abortTransaction();
         res.status(400).json({ message: err.message });
     } finally {

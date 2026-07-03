@@ -9,7 +9,6 @@ import { Resend } from 'resend';
 import {StudentProfile} from "../models/studentProfile.js";
 
 
-
 export const createStudentAccount = async (studentData, { session, tempPassword }) => {
     const { 
         email, fullName, gradeLevel, gender, 
@@ -18,11 +17,11 @@ export const createStudentAccount = async (studentData, { session, tempPassword 
         familyPhoto, familyPersonDob 
     } = studentData;
 
-    // 1. Validation Check (Pass session)
+    // 1. Validation Check
     const emailExists = await User.findOne({ email }).session(session);
     if (emailExists) throw new Error("EMAIL_EXISTS");
 
-    // 2. Atomic Auto-Increment Engine (Pass session)
+    // 2. Atomic Auto-Increment Engine
     const counter = await Counter.findOneAndUpdate(
         { id: "studentIdSequence" },
         { $inc: { seq: 1 } },
@@ -33,7 +32,9 @@ export const createStudentAccount = async (studentData, { session, tempPassword 
     const paddedSequence = counter.seq.toString().padStart(5, "0");
     const customStudentID = `std/${paddedSequence}/${registeredYear}`;
 
-    // 3. Save Parent Profile (Using array for transaction compatibility)
+    if (!customStudentID) throw new Error("ID_GENERATION_FAILED");
+
+    // 3. Save Parent Profile
     const [newParent] = await ParentProfile.create([{
         fullName: parentName,
         phoneNumber: parentPhone,
@@ -44,10 +45,8 @@ export const createStudentAccount = async (studentData, { session, tempPassword 
         familyPersonDob
     }], { session });
 
-    // 4. Hash Password & Create User
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(tempPassword, salt);
-
+    // 4. Create User
+    const hashedPassword = await bcrypt.hash(tempPassword, 10);
     const [newAccount] = await User.create([{
         email,
         password: hashedPassword,
@@ -67,7 +66,12 @@ export const createStudentAccount = async (studentData, { session, tempPassword 
         familyProfile: newParent._id
     }], { session });
 
-    return { newProfile, customStudentID };
+    // Updated return to include tempPassword for the PDF
+    return { 
+        newProfile, 
+        customStudentID, 
+        tempPassword // Added this to pass it back to the client
+    };
 };
 
 export const createTeacherAccount = async ({ email, fullName, phone, department }) => {
@@ -101,9 +105,9 @@ export const createNewCourse = async ({ courseName, courseCode, teacherId }) => 
 
     // 3. Create the course document and map it to the teacher
     const newCourse = await Course.create({ 
-        courseName, 
-        courseCode, 
-        teacher: teacherId 
+        courseName,
+        courseCode,
+        teacher: teacherId
     });
 
     // 4. Update the teacher's profile array to include this new course

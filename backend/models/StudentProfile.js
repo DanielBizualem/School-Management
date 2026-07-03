@@ -1,4 +1,4 @@
-// Inside models/StudentProfile.js
+
 import mongoose from "mongoose";
 
 const studentProfileSchema = new mongoose.Schema({
@@ -18,7 +18,7 @@ const studentProfileSchema = new mongoose.Schema({
         enum: ["Male", "Female"]
     },
     
-    // ADD THIS FIELD: Linking the Parent Document Reference
+    
     familyProfile: { 
         type: mongoose.Schema.Types.ObjectId, 
         ref: "ParentProfile", 
