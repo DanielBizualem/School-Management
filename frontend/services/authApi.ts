@@ -1,3 +1,4 @@
+
 import Axios from "@/utils/Axios";
 import summeryApi from "@/common/summeryApi";
 
@@ -7,5 +8,14 @@ export const loginAPI = async (credentials: any) => {
         url: summeryApi.login.url,
         data: credentials
     });
-    return response.data; // Expecting data structural keys like success, token, user profile, etc.
+
+    if (response.data.accessToken) {
+        localStorage.setItem('accessToken', response.data.accessToken);
+    }
+    if (response.data.refreshToken) {
+        localStorage.setItem('refreshToken', response.data.refreshToken);
+    }
+    
+    return response.data;
 };
+ 

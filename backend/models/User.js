@@ -1,8 +1,9 @@
 import mongoose from "mongoose";
 
 const userSchema = new mongoose.Schema({
-    email: { type: String, required: true, unique: true },
+    email: { type: String, unique: true, sparse:true },
     password: { type: String, required: true }, // Hashed password
+    employeeID: { type: String, unique: true, sparse: true },
     role: {
         type: String, 
         required: true, 

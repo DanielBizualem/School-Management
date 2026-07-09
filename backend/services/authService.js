@@ -11,9 +11,14 @@ import { StaffProfile } from "../models/staffProfile.js"; // Assuming you have t
 import { Admin } from "../models/adminProfile.js"; // Assuming you have these models
 
 
-export const loginUser = async ({ email, password }) => {
+export const loginUser = async ({ identifier, password }) => {
     // 1. Authenticate user
-    const user = await User.findOne({ email });
+    const user = await User.findOne({
+        $or: [
+            { email: identifier },
+            { employeeID: identifier }
+        ]
+    });
     if (!user) throw new Error("INVALID_CREDENTIALS");
 
     const isMatch = await bcrypt.compare(password, user.password);
@@ -47,7 +52,7 @@ export const loginUser = async ({ email, password }) => {
     const accessToken = generateAccessToken(user);
     const refreshToken = generateRefreshToken(user);
 
-    user.refreshTokens.push(refreshToken);
+    //user.refreshTokens.push(refreshToken);
     await user.save();
 
     return {
@@ -63,26 +68,19 @@ export const loginUser = async ({ email, password }) => {
     };
 };
 
-export const refreshUserSession = async (incomingRefreshToken) => {
-    if (!incomingRefreshToken) throw new Error("TOKEN_REQUIRED");
-
-    const decoded = jwt.verify(incomingRefreshToken, process.env.JWT_REFRESH_SECRET);
+export const refreshUserSession = async (refreshToken) => {
+    if (!refreshToken) throw new Error("No Refresh Token provided");
+    const decoded = jwt.verify(refreshToken, process.env.SECRET_REFRESH_TOKEN);
 
     const user = await User.findById(decoded.id);
-    if (!user || !user.refreshTokens.includes(incomingRefreshToken)) {
-        throw new Error("INVALID_REFRESH_TOKEN");
+    
+    if (!user || user.refreshToken !== refreshToken) {
+        throw new Error("Invalid Refresh Token");
     }
 
-    user.refreshTokens = user.refreshTokens.filter(t => t !== incomingRefreshToken);
+    const newAccessToken = await generateAccessToken(user._id);
     
-    // Use the utility functions here too
-    const newAccessToken = generateAccessToken(user);
-    const newRefreshToken = generateRefreshToken(user);
-
-    user.refreshTokens.push(newRefreshToken);
-    await user.save();
-
-    return { accessToken: newAccessToken, refreshToken: newRefreshToken };
+    return { accessToken: newAccessToken };
 };
 
 export const logoutUser = async (activeRefreshToken) => {

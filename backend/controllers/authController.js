@@ -2,10 +2,10 @@ import { loginUser, refreshUserSession, logoutUser } from "../services/authServi
 
 export const login = async (req, res) => {
     try {
-        const { email, password } = req.body;
-        console.log("Attempting login for:", email); // Log before calling service
+        const { identifier, password } = req.body;
+        console.log("Attempting login for:", identifier); // Log before calling service
         
-        const data = await loginUser({ email, password });
+        const data = await loginUser({ identifier, password });
         
         return res.status(200).json({
             success: true, // Make sure your frontend checks for this
@@ -28,18 +28,25 @@ export const login = async (req, res) => {
 };
 
 export const refreshSession = async (req, res) => {
-    try {
-        const { refreshToken } = req.body;
-        const tokens = await refreshUserSession(refreshToken);
+  try {
+    const refreshToken = req.cookies.refreshToken;
+    const result = await refreshUserSession(refreshToken);
 
-        return res.status(200).json({
-            accessToken: tokens.accessToken,
-            refreshToken: tokens.refreshToken // Refreshed to prevent session hijacking
-        });
-    } catch (error) {
-        return res.status(401).json({ message: "Session expired or invalid refresh token. Please re-authenticate." });
-    }
+    res.cookie("accessToken", result.accessToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "None",
+    });
+
+    return res.status(200).json({
+      success: true,
+      accessToken: result.accessToken,
+    });
+  } catch (error) {
+    return res.status(401).json(error.message);
+  }
 };
+
 
 export const logout = async (req, res) => {
     try {

@@ -1,4 +1,5 @@
-import { submitStudentMark, getAIStudentEvaluation } from "../services/teacherService.js";
+import { submitStudentMark, getAIStudentEvaluation, registerTeacher} from "../services/teacherService.js";
+import * as teacherService from "../services/teacherService.js";
 
 export const updateStudentGrade = async (req, res) => {
     const { studentId, courseId, mark } = req.body;
@@ -83,5 +84,56 @@ export const generateEvaluationText = async (req, res) => {
             message: "Could not compile AI evaluation.", 
             error: error.message 
         });
+    }
+};
+
+export const register = async (req, res) => {
+    try {
+        const { fullName, phoneNumber, department, salary } = req.body;
+
+        // 1. Basic validation
+        if (!fullName || !phoneNumber || !department || !salary) {
+            return res.status(400).json({ 
+                success: false,
+                message: "All fields (fullName, phoneNumber, department, salary) are required." 
+            });
+        }
+
+        // 2. Call the service
+        const data = await registerTeacher({ 
+            fullName, 
+            phoneNumber, 
+            department, 
+            salary 
+        });
+
+        // 3. Send response back to frontend
+        return res.status(201).json({
+            success: true,
+            message: "Teacher registered successfully",
+            teacher: data.teacher,
+            credentials: data.credentials // This now contains the plain-text password
+        });
+
+    } catch (error) {
+        console.error("REGISTRATION_ERROR:", error);
+        return res.status(500).json({ 
+            success: false, 
+            message: "An error occurred while registering the teacher.",
+            error: error.message 
+        });
+    }
+};
+
+export const getTeachers = async (req, res) => {
+    try {
+        const teachers = await teacherService.getAllTeachers();
+        res.status(200).json({
+            success: true,
+            count: teachers.length,
+            data: teachers
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
     }
 };

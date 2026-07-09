@@ -7,6 +7,7 @@ import { ParentProfile } from "../models/ParentProfile.js";
 import { Counter } from "../models/Counter.js";
 import { Resend } from 'resend';
 import {StudentProfile} from "../models/studentProfile.js";
+import { Admin } from "../models/adminProfile.js";
 
 
 export const createStudentAccount = async (studentData, { session, tempPassword }) => {
@@ -145,4 +146,22 @@ export const createAdmin = async (adminData) => {
     } finally {
         session.endSession();
     }
+};
+
+export const getAdminDetail = async (adminId) => {
+    // 1. Fetch profile and populate user details
+    const adminProfile = await Admin.findById(adminId).populate("user", "email");
+    
+    // 2. Throw specific error if not found
+    if (!adminProfile) throw new Error("ADMIN_NOT_FOUND");
+
+    // 3. Return a clean data object
+    // Use optional chaining (?.) in case 'user' reference is somehow missing
+    return {
+        fullName: adminProfile.fullName,
+        adminID: adminProfile.adminID,
+        department: adminProfile.department,
+        phoneNumber: adminProfile.phoneNumber,
+        email: adminProfile.user?.email || "N/A"
+    };
 };

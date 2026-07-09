@@ -12,6 +12,7 @@ import directorRoutes from "./routes/directorRoutes.js";
 import teacherRoutes from "./routes/teacherRoutes.js";
 import studentRoutes from "./routes/studentRoutes.js";
 import uploadRoutes from "./routes/uploadRoutes.js";
+import userRoute from "./routes/userRoute.js";
 import swaggerUi from "swagger-ui-express";
 import fs from "fs";
 
@@ -31,6 +32,7 @@ app.use("/api/director", directorRoutes);
 app.use("/api/teacher", teacherRoutes);
 app.use("/api/student", studentRoutes);
 app.use('/api', uploadRoutes)
+app.use("/api/user",userRoute)
 
 const PORT = process.env.PORT || 5000;
 

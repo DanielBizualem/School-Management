@@ -10,11 +10,7 @@ const staffProfileSchema = new mongoose.Schema({
     employeeID: { type: String, required: true, unique: true },
 
     // Financial Information
-    salary: {
-        amount: { type: Number, required: true },
-        currency: { type: String, default: "ETB" },
-        payPeriod: { type: String, enum: ["monthly", "annual"], default: "monthly" }
-    },
+    salary: { type: Number, required: true},
 
     // Teacher-Specific Fields
     assignedCourses: [{ type: mongoose.Schema.Types.ObjectId, ref: "Course" }],

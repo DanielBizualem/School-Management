@@ -20,6 +20,16 @@ export const getAllStudentsAPI = async () => {
     });
     return response.data.data;
 };
+export const getAllTeachersAPI = async () => {
+    const response = await Axios({
+        method: summeryApi.getAllTeachers.method,
+        url: summeryApi.getAllTeachers.url
+    });
+
+   
+
+    return response.data.data;
+};
 
 export const enrollCourseAPI = async (studentId: string, courseId: string) => {
     const response = await Axios({

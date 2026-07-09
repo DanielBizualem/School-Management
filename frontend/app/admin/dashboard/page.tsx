@@ -2,16 +2,19 @@
 
 import React, { useEffect, useState } from "react";
 import { getAllStudentsAPI, getSystemCoursesAPI } from "@/services/adminApi";
-import { UXStudentRecord, UXCourseItem, UXParentProfile } from "@/types/uxAdmin";
+import { UXStudentRecord, UXCourseItem, UXParentProfile, UXDepartmentProfile} from "@/types/uxAdmin";
+import { UXTeacherRecord } from "@/types/uxAdmin";
 
 import AdminNav from "@/components/admin/AdminNav";
+
 import AdminAnalytics from "@/components/admin/AdminAnalytics";
 import GetAllStudents from "@/components/admin/GetAllStudents";
 import GetSystemCourses from "@/components/admin/GetSystemCourses";
 import RegisterStudent from "@/components/admin/RegisterStudents";
 import EnrollCourse from "@/components/admin/EnrollCourse";
+import TeacherRegistry from "@/components/admin/GetAllTeachers";
 
-type AdminTab = "analytics" | "students" | "courses" | "register";
+type AdminTab = "analytics" | "students"| "teachers" | "courses" | "register";
 
 export default function AdminDashboardPortal(): React.JSX.Element {
     const [activeTab, setActiveTab] = useState<AdminTab>("analytics");
@@ -21,6 +24,11 @@ export default function AdminDashboardPortal(): React.JSX.Element {
 
     const [enrollmentTarget, setEnrollmentTarget] = useState<UXStudentRecord | null>(null);
     const [activeDrawerParent, setActiveDrawerParent] = useState<UXParentProfile | null>(null);
+
+    const [teacherTarget, setTeacherTarget] = useState<UXTeacherRecord | null>(null);
+
+// State for viewing a specific department or profile associated with a teacher
+    const [activeDrawerDepartment, setActiveDrawerDepartment] = useState<UXDepartmentProfile | null>(null);
 
     const syncRosterContext = async () => {
         try {
@@ -45,7 +53,7 @@ export default function AdminDashboardPortal(): React.JSX.Element {
     }
 
     return (
-        <AdminNav activeDashboardTab={activeTab} onTabChange={(tab) => setActiveTab(tab)}>
+        <AdminNav activeDashboardTab={activeTab} onTabChange={(tab:AdminTab) => setActiveTab(tab)}>
             
             {/* The previous upper <header> layout wrapper has been stripped for a cleaner look */}
 
@@ -57,6 +65,17 @@ export default function AdminDashboardPortal(): React.JSX.Element {
                 {activeTab === "students" && (
                     <GetAllStudents students={students} onEnrollClick={setEnrollmentTarget} onViewParent={setActiveDrawerParent} />
                 )}
+
+                {activeTab === "teachers" && (
+                    <TeacherRegistry 
+                        onEditTeacher={setTeacherTarget} 
+                        onViewDepartment={setActiveDrawerDepartment} 
+                    />
+                )}
+                
+                 
+                 
+                                
                 {activeTab === "courses" && (
                     <GetSystemCourses courses={courses} />
                 )}

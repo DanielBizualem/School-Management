@@ -1,75 +1,64 @@
-import axios from 'axios';
+import axios from "axios";
 import summeryApi, { baseURL } from "../common/summeryApi";
 
 const Axios = axios.create({
     baseURL: baseURL,
-    withCredentials: true
+    withCredentials: true // Crucial for cookies
 });
 
 // Request Interceptor
-Axios.interceptors.request.use(
-    (config) => {
-        if (typeof window !== "undefined") {
-            const accessToken = localStorage.getItem('accessToken');
-            if (accessToken) {
-                config.headers.Authorization = `Bearer ${accessToken}`;
-            }
-        }
-        return config;
-    },
-    (error) => {
-        return Promise.reject(error);
+Axios.interceptors.request.use((config) => {
+    const accessToken = localStorage.getItem('accessToken');
+    if (accessToken) {
+        config.headers.authorization = `Bearer ${accessToken}`;
     }
-);
+    return config;
+});
 
 // Response Interceptor
+// utils/Axios.js - Response Interceptor
 Axios.interceptors.response.use(
     (response) => response,
     async (error) => {
-        const originRequest = error.config;
+        const originalRequest = error.config;
 
-        if (error.response && error.response.status === 401 && !originRequest._retry) {
-            originRequest._retry = true; 
+        // 1. Only retry if it's a 401 and we haven't already retried
+        if (error.response?.status === 401 && !originalRequest._retry) {
+            originalRequest._retry = true;
 
-            if (typeof window !== "undefined") {
-                const refreshToken = localStorage.getItem('refreshToken');
-                
-                if (refreshToken) {
-                    const newAccessToken = await refreshAccessToken(refreshToken);
-                    if (newAccessToken) {
-                        originRequest.headers.Authorization = `Bearer ${newAccessToken}`;
-                        return Axios(originRequest);
-                    }
-                }
+            // 2. Attempt to refresh the token
+            const newAccessToken = await refreshAccessToken();
+            
+            if (newAccessToken) {
+                // 3. Update the Authorization header for the request that failed
+                originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
+                // 4. Retry the original request
+                return Axios(originalRequest);
             }
         }
         return Promise.reject(error);
     }
 );
 
-// Core Token Refresh Helper Function
-const refreshAccessToken = async (refreshToken) => {
+const refreshAccessToken = async () => {
     try {
-        const response = await axios({
-            method: summeryApi.refreshToken.method,
-            url: `${baseURL}${summeryApi.refreshToken.url}`,
-            headers: {
-                Authorization: `Bearer ${refreshToken}`
-            }
+        const oldRefreshToken = localStorage.getItem('refreshToken');
+        
+        // Send the refresh token in the body, as that's safer/common
+        const response = await axios.post(`${baseURL}${summeryApi.refreshToken.url}`, {
+            refreshToken: oldRefreshToken 
         });
 
-        const accessToken = response.data?.data?.accessToken;
+        const newAccessToken = response.data.accessToken; // Matches your new response structure
         
-        if (accessToken) {
-            localStorage.setItem('accessToken', accessToken);
-            return accessToken;
+        if (newAccessToken) {
+            localStorage.setItem('accessToken', newAccessToken);
+            return newAccessToken;
         }
-        
         return null;
     } catch (error) {
-        console.error("Refresh operations failed. Flushing credentials:", error);
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
+        localStorage.clear();
+        window.location.href = '/login';
         return null;
     }
 };

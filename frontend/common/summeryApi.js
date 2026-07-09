@@ -1,3 +1,4 @@
+
 export const baseURL = "http://localhost:5000";
 
 export const summeryApi = {
@@ -6,7 +7,7 @@ export const summeryApi = {
         method: "POST"
     },
     refreshToken: {
-        url: "/api/auth/refresh-token",
+        url: "/api/auth/refresh",
         method: "POST"
     },
     
@@ -30,6 +31,18 @@ export const summeryApi = {
     getSystemCourses: {
         url: "/api/admin/get-all-courses",                 // Lists available courses inside the academic directory
         method: "GET"
+    },
+    getAllTeachers:{
+        url: "/api/admin/getAllTeachers",
+        method: "GET"
+    },
+    registerTeacher:{
+        url: "/api/admin/register-teacher",
+        method: "POST"
+    },
+    getUserDetail:{
+        url: "/api/user/getUserDetail",
+        method: "POST"
     }
 };
 

@@ -5,9 +5,17 @@ import { Trash2, Edit3, Loader2 } from "lucide-react";
 import { getAllStudentsAPI } from "@/services/adminApi";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable"; 
+import { UXStudentRecord } from "@/types/uxAdmin";
 
-export default function StudentRegistry() {
-    const [students, setStudents] = useState([]);
+interface StudentProps {
+    students: UXStudentRecord[];
+    onEnrollClick: (target: any) => void;
+    onViewParent: (parent: any) => void;
+    
+}
+
+export default function StudentRegistry({students}:StudentProps) {
+    const [student, setStudents] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
     const [gradeFilter, setGradeFilter] = useState("All");
@@ -56,8 +64,8 @@ export default function StudentRegistry() {
     };
 
     // FIXED: Filter logic uses strict matching instead of 'includes("12")'
-    const filteredStudents = Array.isArray(students) 
-        ? students.filter((s: any) => {
+    const filteredStudents = Array.isArray(student) 
+        ? student.filter((s: any) => {
             const matchesGrade = gradeFilter === "All" || s.gradeLevel === gradeFilter;
             const matchesSearch = s.studentID?.toLowerCase().includes(searchQuery.toLowerCase());
             return matchesGrade && matchesSearch;

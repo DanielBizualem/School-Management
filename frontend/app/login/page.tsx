@@ -4,9 +4,11 @@ import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import summeryApi from "@/common/summeryApi";
 import Axios from "@/utils/Axios";
+import { BookOpen } from "lucide-react";
+
 
 export default function Login() {
-    const [credentials, setCredentials] = useState({ email: "", password: "" });
+    const [credentials, setCredentials] = useState({ identifier: "", password: "" });
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
     const router = useRouter();
@@ -55,10 +57,8 @@ export default function Login() {
             <div className="bg-white w-full max-w-md p-8 rounded-3xl border border-slate-200 shadow-sm">
                 
                 <div className="text-center mb-8">
-                    <div className="w-20 h-20 bg-teal-50 rounded-3xl mx-auto mb-4 flex items-center justify-center shadow-sm">
-                        <svg className="w-10 h-10 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M3 21h18M3 10h18M3 21V7a2 2 0 012-2h14a2 2 0 012 2v14M9 21v-6a2 2 0 012-2h2a2 2 0 012 2v6" />
-                        </svg>
+                    <div className="w-15 h-15 bg-teal-50 rounded-3xl mx-auto mb-4 flex items-center justify-center shadow-sm">
+                        <BookOpen className="w-7 h-7 text-teal-600" />
                     </div>
                     <h1 className="text-2xl font-bold text-slate-900">ONESMOS NESIB</h1>
                     <p className="text-slate-500 text-sm mt-2">Sign in to your account</p>
@@ -68,10 +68,10 @@ export default function Login() {
                     <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1.5">Email</label>
                         <input 
-                            type="email" 
+                            type="text" 
                             placeholder="Enter your email" 
-                            value={credentials.email}
-                            onChange={e => setCredentials({...credentials, email: e.target.value})}
+                            value={credentials.identifier}
+                            onChange={e => setCredentials({...credentials, identifier: e.target.value})}
                             className="w-full px-4 py-3 border border-slate-300 rounded-xl text-sm outline-none focus:border-teal-600 focus:ring-1 focus:ring-teal-600 transition" 
                             required 
                         />

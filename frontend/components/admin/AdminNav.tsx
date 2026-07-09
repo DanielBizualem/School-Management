@@ -16,7 +16,7 @@ import {
     Settings2
 } from "lucide-react";
 
-type AdminTab = "analytics" | "students" | "courses" | "register";
+export type AdminTab = "analytics" | "students" | "teachers" | "courses" | "register" | "settings";
 
 interface AdminNavProps {
     children: React.ReactNode;
@@ -115,7 +115,7 @@ export default function AdminNav({ children, activeDashboardTab, onTabChange }: 
                             </div>
                         ) : (
                             <div className="text-white font-black text-sm tracking-widest bg-slate-900/40 w-8 h-8 rounded-xl flex items-center justify-center border border-slate-800/50">
-                                A
+                                ONA
                             </div>
                         )}
                     </div>

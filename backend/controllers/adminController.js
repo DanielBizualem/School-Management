@@ -8,6 +8,7 @@ import { Course } from "../models/Course.js";
 import { StudentProfile } from "../models/studentProfile.js";
 import { sendTemporaryPasswordEmail } from "../utils/sendEmail.js";
 import crypto from 'crypto';
+import { getAdminDetail } from "../services/adminService.js";
 
 export const registerStudent = async (req, res) => {
     const session = await mongoose.startSession();
@@ -162,5 +163,26 @@ export const getAllStudents = async (req, res) => {
         });
     } catch (error) {
         res.status(500).json({ success: false, message: "Error fetching students", error: error.message });
+    }
+};
+
+export const getAdminDetailController = async (req, res) => {
+    try {
+        // Assuming adminId comes from an auth middleware or params
+        const { adminId } = req.params; 
+        
+        const adminData = await getAdminDetail(adminId);
+        
+        return res.status(200).json({
+            success: true,
+            data: adminData
+        });
+    } catch (error) {
+        if (error.message === "ADMIN_NOT_FOUND") {
+            return res.status(404).json({ success: false, message: "Admin profile not found." });
+        }
+        
+        console.error("GET_ADMIN_ERROR:", error);
+        return res.status(500).json({ success: false, message: "Internal server error." });
     }
 };
