@@ -43,6 +43,10 @@ export const summeryApi = {
     getUserDetail:{
         url: "/api/user/getUserDetail",
         method: "POST"
+    },
+    updateProfile:{
+        url: "/api/user/updateProfile",
+        method: "PATCH"
     }
 };
 

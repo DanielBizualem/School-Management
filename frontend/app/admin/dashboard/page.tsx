@@ -13,6 +13,7 @@ import GetSystemCourses from "@/components/admin/GetSystemCourses";
 import RegisterStudent from "@/components/admin/RegisterStudents";
 import EnrollCourse from "@/components/admin/EnrollCourse";
 import TeacherRegistry from "@/components/admin/GetAllTeachers";
+import ProfileSettings from "@/components/admin/adminSetting";
 
 type AdminTab = "analytics" | "students"| "teachers" | "courses" | "register";
 
@@ -47,7 +48,7 @@ export default function AdminDashboardPortal(): React.JSX.Element {
     if (loading) {
         return (
             <div className="flex h-screen w-screen items-center justify-center bg-slate-50">
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest animate-pulse">Syncing core pipeline assets...</p>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest animate-pulse">Loading...</p>
             </div>
         );
     }
@@ -71,6 +72,10 @@ export default function AdminDashboardPortal(): React.JSX.Element {
                         onEditTeacher={setTeacherTarget} 
                         onViewDepartment={setActiveDrawerDepartment} 
                     />
+                )}
+
+                {activeTab === "settings" && (
+                    <ProfileSettings />
                 )}
                 
                  
