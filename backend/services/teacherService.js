@@ -78,37 +78,33 @@ const generateEmployeeID = async () => {
     return `EMP${sequence}/${year}`;
 };
 
-export const registerTeacher = async ({ fullName, phoneNumber, department, salary }) => {
+export const registerTeacher = async (teacherData) => {
     const rawPassword = crypto.randomBytes(8).toString('hex');
     const hashedPassword = await bcrypt.hash(rawPassword, 10);
-    // 2. Generate a unique Employee ID (e.g., ONS-2026-XXXX)
+    
     const year = new Date().getFullYear().toString().slice(-2);
     const count = await StaffProfile.countDocuments({});
-    const sequence = (count + 1).toString().padStart(4, '0');
-    const employeeID = `EMP/${sequence}/${year}`;
+    const employeeID = `EMP/${(count + 1).toString().padStart(4, '0')}/${year}`;
 
-    // 4. Create User (for login)
     const newUser = await User.create({
         employeeID,
         password: hashedPassword,
         role: "teacher"
     });
 
-    // 5. Create Staff Profile
     const newProfile = await StaffProfile.create({
         user: newUser._id,
         role: "teacher",
-        fullName,
-        phoneNumber,
-        department,
         employeeID,
-        salary // Ensure your StaffProfile schema accepts this
+        salary: teacherData.salary,
+        personalInfo: teacherData.personalInfo,
+        contactAddress: teacherData.contactAddress,
+        education: teacherData.education,
+        experience: teacherData.experience,
+        emergencyContact: teacherData.emergencyContact
     });
 
-    return {
-        teacher: newProfile, 
-        credentials: { fullName, employeeID, password:rawPassword } // Return these for the PDF generation
-    };
+    return { teacher: newProfile, credentials: { employeeID, password: rawPassword } };
 };
 
 export const getAllTeachers = async () => {

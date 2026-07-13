@@ -89,39 +89,29 @@ export const generateEvaluationText = async (req, res) => {
 
 export const register = async (req, res) => {
     try {
-        const { fullName, phoneNumber, department, salary } = req.body;
+        const { 
+            personalInfo, contactAddress, education, 
+            experience, emergencyContact, salary 
+        } = req.body;
 
-        // 1. Basic validation
-        if (!fullName || !phoneNumber || !department || !salary) {
-            return res.status(400).json({ 
-                success: false,
-                message: "All fields (fullName, phoneNumber, department, salary) are required." 
-            });
+        // Validation: Ensure required nested objects exist
+        if (!personalInfo || !contactAddress || !salary || !emergencyContact) {
+            return res.status(400).json({ success: false, message: "Missing required profile fields." });
         }
 
-        // 2. Call the service
         const data = await registerTeacher({ 
-            fullName, 
-            phoneNumber, 
-            department, 
-            salary 
+            personalInfo, contactAddress, education, 
+            experience, emergencyContact, salary 
         });
 
-        // 3. Send response back to frontend
         return res.status(201).json({
             success: true,
             message: "Teacher registered successfully",
             teacher: data.teacher,
-            credentials: data.credentials // This now contains the plain-text password
+            credentials: data.credentials 
         });
-
     } catch (error) {
-        console.error("REGISTRATION_ERROR:", error);
-        return res.status(500).json({ 
-            success: false, 
-            message: "An error occurred while registering the teacher.",
-            error: error.message 
-        });
+        return res.status(500).json({ success: false, message: error.message });
     }
 };
 
@@ -137,3 +127,21 @@ export const getTeachers = async (req, res) => {
         res.status(500).json({ success: false, message: error.message });
     }
 };
+
+
+export const updateTeacher = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { status } = req.body;
+        
+        const updatedTeacher = await StaffProfile.findByIdAndUpdate(
+            id, 
+            { status }, 
+            { new: true }
+        );
+        
+        res.json({ success: true, data: updatedTeacher });
+    } catch (error) {
+        res.status(500).json({ message: "Update failed", error });
+    }
+}

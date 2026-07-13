@@ -47,3 +47,4 @@ export const getSystemCoursesAPI = async () => {
     });
     return response.data;
 };
+
