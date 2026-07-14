@@ -1,5 +1,6 @@
 import { submitStudentMark, getAIStudentEvaluation, registerTeacher} from "../services/teacherService.js";
 import * as teacherService from "../services/teacherService.js";
+import { StaffProfile } from "../models/staffProfile.js";
 
 export const updateStudentGrade = async (req, res) => {
     const { studentId, courseId, mark } = req.body;
@@ -131,17 +132,23 @@ export const getTeachers = async (req, res) => {
 
 export const updateTeacher = async (req, res) => {
     try {
+        //console.log("Current User:",req.user)
         const { id } = req.params;
-        const { status } = req.body;
+        const { teacherId, status } = req.body;
+        console.log("DEBUG: Looking for ID:", teacherId);
         
         const updatedTeacher = await StaffProfile.findByIdAndUpdate(
-            id, 
+            teacherId, 
             { status }, 
             { new: true }
         );
         
         res.json({ success: true, data: updatedTeacher });
     } catch (error) {
-        res.status(500).json({ message: "Update failed", error });
+        console.error("DEBUG ERROR:", error); // This will show the actual message in your terminal
+        res.status(500).json({ 
+        message: "Update failed", 
+        error: error.message || error // Send the message specifically
+    });
     }
 }

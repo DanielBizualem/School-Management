@@ -1,5 +1,6 @@
 import jwt from "jsonwebtoken";
-import { StaffProfile } from "../models/StaffProfile.js"; // Ensure this is imported
+//import { StaffProfile } from "../models/StaffProfile.js"; // Ensure this is imported
+import { StaffProfile } from "../models/StaffProfile.js";
 
 export const protect = async (req, res, next) => {
     let token;
@@ -31,6 +32,7 @@ export const protect = async (req, res, next) => {
 // Role authorization remains the same and will work perfectly with the fixed req.user
 export const authorizeRoles = (...roles) => {
     return (req, res, next) => {
+        console.log("DEBUG: User Role:", req.user?.role, "Allowed Roles:", roles);
         if (!req.user || !roles.includes(req.user.role)) {
             return res.status(403).json({ 
                 message: `Forbidden: Role '${req.user?.role || "unknown"}' is not authorized.` 

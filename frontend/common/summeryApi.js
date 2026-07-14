@@ -49,7 +49,7 @@ export const summeryApi = {
         method: "PATCH"
     },
     updateTeacher:{
-        url: "/api/teacher/updateTeacher",
+        url: "/api/admin/updateTeacher",
         method: "PATCH"
     }
 };

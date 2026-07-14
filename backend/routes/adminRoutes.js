@@ -3,6 +3,7 @@ import { registerStudent, registerTeacher, registerDirector, addCourse, createAd
 import { protect, authorizeRoles } from "../middleware/authMiddleware.js";
 import multer from 'multer';
 import { getTeachers, register } from "../controllers/teacherController.js";
+import { updateTeacher } from "../controllers/teacherController.js";
 const upload = multer({ storage: multer.memoryStorage() });
 
 const router = express.Router();
@@ -27,6 +28,7 @@ router.post('/register',
 router.post('/registerTeachers', protect, authorizeRoles('admin'), register);
 router.get('/getAllTeachers',protect, authorizeRoles('admin'), getTeachers);
 router.get('/getAdminDetail', protect, authorizeRoles('admin'),getAdminDetailController)
+router.patch("/updateTeacher",protect,authorizeRoles("admin"), updateTeacher);
 
 
 export default router;

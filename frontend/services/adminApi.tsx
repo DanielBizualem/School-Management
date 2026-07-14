@@ -48,3 +48,11 @@ export const getSystemCoursesAPI = async () => {
     return response.data;
 };
 
+export const updateTeacherStatusAPI = async (teacherId: string, status: string) => {
+    const response = await Axios({
+        method: summeryApi.updateTeacher.method,
+        url: summeryApi.updateTeacher.url,
+        data: { teacherId, status }
+    });
+    return response.data;
+}

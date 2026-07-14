@@ -9,6 +9,6 @@ router.use(protect, authorizeRoles("teacher"));
 router.put("/update-grade", updateStudentGrade);
 router.post("/generate-evaluation", generateEvaluationText);
 router.post('/register', protect, authorizeRoles('admin'), register);
-router.patch("/updateTeacher",protect,authorizeRoles("admin"), updateTeacher);
+
 
 export default router;
