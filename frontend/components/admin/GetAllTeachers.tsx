@@ -134,7 +134,7 @@ export default function TeacherRegistry({ onEditTeacher, onViewDepartment }: Tea
                     onClick={() => setView("list")}
                     className="flex items-center gap-2 mb-6 text-slate-600 hover:text-black font-medium"
                 >
-                    <ArrowLeft size={20} /> Back to list
+                    <ArrowLeft size={20} /> Back
                 </button>
                 <div className="max-w-4xl mx-auto">
                     <TeacherRegistrationForm

@@ -1,40 +1,35 @@
 'use client';
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import Axios from '../../utils/Axios';
+import Axios from '../utils/Axios';
 import summeryApi from '../common/summeryApi';
 
-
-//const UserContext = createContext();
-
+const UserContext = createContext(undefined);
 
 export const UserProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
-  
-  // Use a ref to prevent multiple simultaneous fetches
+
+  // Prevent overlapping requests
   const isFetching = useRef(false);
 
-  const handleLogout = () => {
+  const handleLogout = useCallback(() => {
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
-  
+
     document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC; SameSite=Lax";
     document.cookie = "role=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC; SameSite=Lax";
-    if (setUser) {
-      setUser(null);
-    }
 
+    setUser(null);
     window.location.href = '/login';
-  };
+  }, []);
 
   const fetchUserDetails = useCallback(async () => {
-    // Prevent overlapping requests
     if (isFetching.current) return;
-    
+
     const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
-    
+
     if (!token) {
       setLoading(false);
       setUser(null);
@@ -43,18 +38,18 @@ export const UserProvider = ({ children }) => {
 
     try {
       isFetching.current = true;
-      
-      // Add a timestamp to bypass the 304 cache and get a fresh 200 OK
+
+      // Bust cache to avoid a stale 304
       const response = await Axios({
         ...summeryApi.getUserDetail,
-        url: `${summeryApi.getUserDetail.url}?t=${Date.now()}` 
+        url: `${summeryApi.getUserDetail.url}?t=${Date.now()}`,
       });
-
+      
       if (response.data.success) {
-        const userData = response.data.data.user;
-        
-        // Only update state if the data is actually different to prevent unnecessary renders
-        setUser(prev => JSON.stringify(prev) === JSON.stringify(userData) ? prev : userData);
+        const userData = response.data.data.user ?? response.data.data;
+        setUser((prev) =>
+          JSON.stringify(prev) === JSON.stringify(userData) ? prev : userData
+        );
       } else {
         handleLogout();
       }
@@ -65,13 +60,13 @@ export const UserProvider = ({ children }) => {
       setLoading(false);
       isFetching.current = false;
     }
-  }, [handleLogout]); // router is indirectly here via handleLogout
+  }, [handleLogout]);
 
   useEffect(() => {
     fetchUserDetails();
-    // We only want this to run ONCE when the app mounts
+    // Runs once on mount by design
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); 
+  }, []);
 
   return (
     <UserContext.Provider value={{ user, setUser, fetchUserDetails, loading, handleLogout }}>
@@ -80,11 +75,10 @@ export const UserProvider = ({ children }) => {
   );
 };
 
-
-
-export const useUser = ()=>{
-    const context = useContext(UserContext)
-    if(!context){
-        throw new Error(`useUser must be used within a UserProvider`)
-    }
-}
+export const useUser = () => {
+  const context = useContext(UserContext);
+  if (context === undefined) {
+    throw new Error('useUser must be used within a UserProvider');
+  }
+  return context;
+};

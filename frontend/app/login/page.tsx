@@ -34,7 +34,7 @@ export default function Login() {
                 const roleRoutes: Record<string, string> = {
                     admin: "/admin/dashboard",
                     director: "/director/dashboard",
-                    teacher: "/teacher/analytics",
+                    teacher: "/teacher/profile",
                     student: "/student/dashboard",
                     parent: "/parent/dashboard",
                 };

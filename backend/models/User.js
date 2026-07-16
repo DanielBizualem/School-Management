@@ -10,7 +10,7 @@ const userSchema = new mongoose.Schema({
         enum: ["admin", "director", "teacher", "student"] 
     },
     isFirstLogin: { type: Boolean, default: true },
-    refreshTokens: [{ type: String }]
+    refreshTokens: [{ type: String, select: false }] 
 }, { timestamps: true });
 
 export const User = mongoose.models.User || mongoose.model("User", userSchema);

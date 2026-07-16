@@ -31,4 +31,5 @@ router.get('/getAdminDetail', protect, authorizeRoles('admin'),getAdminDetailCon
 router.patch("/updateTeacher",protect,authorizeRoles("admin"), updateTeacher);
 
 
+
 export default router;

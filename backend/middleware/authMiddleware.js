@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken";
 //import { StaffProfile } from "../models/StaffProfile.js"; // Ensure this is imported
 import { StaffProfile } from "../models/StaffProfile.js";
+import {User} from "../models/User.js";
 
 export const protect = async (req, res, next) => {
     let token;
@@ -11,7 +12,8 @@ export const protect = async (req, res, next) => {
             const decoded = jwt.verify(token, process.env.JWT_ACCESS_SECRET);
 
             // 1. Initialize req.user first
-            req.user = { id: decoded.id, role: decoded.role };
+            //req.user = { id: decoded.id, role: decoded.role };
+            req.user = await User.findById(decoded.id).select("-password");
 
             // 2. Fetch staffId if applicable and attach to req.user
             if (decoded.role === 'teacher' || decoded.role === 'director') {

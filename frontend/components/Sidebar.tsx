@@ -1,16 +1,55 @@
 'use client';
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { 
     LayoutDashboard, Users, LogOut, PanelLeftClose, PanelLeftOpen, Settings2, ChevronsUpDown
 } from "lucide-react";
+import summeryApi from "@/common/summeryApi";
+import Axios from "@/utils/Axios";
+
+
+interface TeacherProfile {
+    _id: string;
+    status: string;
+    employeeID?: string;
+    user: {
+        email: string;
+    };
+    personalInfo: {
+        fullName: string;
+        department: string;
+        birthday: string;
+        nationality: string;
+        gender: string;
+        employeeID: string;
+    };
+    contactAddress: {
+        email: string;
+        phoneNumber: string;
+        city: string;
+        kebele: string;
+    };
+    education: {
+        completionLevel: string;
+    };
+    experience?: string;
+    emergencyContact?: {
+        fullName?: string;
+        relationship?: string;
+        phoneNumber?: string;
+    };
+    
+}
 
 export default function Sidebar() {
     const router = useRouter();
     const pathname = usePathname();
     const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
     const [isCollapsed, setIsCollapsed] = useState(false);
+    const [teacherDetail, setTeacherDetail] = useState<TeacherProfile | null>(null);
+    const [loading, setLoading] = useState(true)
+
 
     const navItems = [
         { label: "Teacher Profile", id: "profile", path: "/teacher/profile", icon: Users },
@@ -23,6 +62,27 @@ export default function Sidebar() {
       sessionStorage.removeItem("accessToken");
       router.push("/login");
   };
+
+  const fetchDetail = async () => {
+    try {
+        setLoading(true);
+        const response = await Axios({
+            ...summeryApi.getUserDetail
+        });
+        setTeacherDetail(response.data.data);
+    } catch (error) {
+        console.error("Failed to fetch teacher details", error);
+    } finally {
+        setLoading(false);
+    }
+};
+
+    useEffect(() => {
+        fetchDetail();
+    }, []);
+    
+    const  personalInfo  = teacherDetail?.personalInfo;
+    const contactAddress = teacherDetail?.contactAddress;
 
     return (
         /* Using your dark navy background and layout */
@@ -113,10 +173,10 @@ export default function Sidebar() {
                             {!isCollapsed && (
                                 <div className="text-left overflow-hidden flex-1">
                                     <span className="text-sm font-bold text-slate-200 block truncate leading-tight">
-                                        Daniel Bizualem
+                                        {personalInfo?.fullName || "Daniel Kasa"}
                                     </span>
                                     <span className="text-xs text-slate-500 font-medium block truncate mt-0.5">
-                                        daniel@sovereign.dev
+                                        {contactAddress?.email}
                                     </span>
                                 </div>
                             )}

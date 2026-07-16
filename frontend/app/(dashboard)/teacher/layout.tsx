@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "../../../app/globals.css";
 import Sidebar from "@/components/Sidebar";
+//import { UserProvider } from '@/context/UserContext';
+import { UserProvider } from "../../../context/userContext";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -23,9 +25,9 @@ export default function RootLayout({
           
           {/* Main Content Area */}
           {/* ml-64 corresponds to the width of the Sidebar (w-64) */}
-          <main className="flex-1 p-8">
+          <main className="flex-1 p-8 h-screen overflow-y-auto">
             <div className="max-w-6xl mx-auto">
-              {children}
+              <UserProvider>{children}</UserProvider>
             </div>
           </main>
         </div>
