@@ -1,6 +1,7 @@
 import axios from "axios";
 import summeryApi, { baseURL } from "../common/summeryApi";
 
+
 const Axios = axios.create({
     baseURL: baseURL,
     withCredentials: true // Crucial for cookies
@@ -10,7 +11,7 @@ const Axios = axios.create({
 Axios.interceptors.request.use((config) => {
     const accessToken = localStorage.getItem('accessToken');
     if (accessToken) {
-        config.headers.authorization = `Bearer ${accessToken}`;
+        config.headers.Authorization = `Bearer ${accessToken}`;
     }
     return config;
 });
@@ -42,14 +43,14 @@ Axios.interceptors.response.use(
 
 const refreshAccessToken = async () => {
     try {
-        const oldRefreshToken = localStorage.getItem('refreshToken');
-        
-        // Send the refresh token in the body, as that's safer/common
-        const response = await axios.post(`${baseURL}${summeryApi.refreshToken.url}`, {
-            refreshToken: oldRefreshToken 
-        });
+        // No body needed! The browser sends the cookie automatically.
+        const response = await Axios.post(
+            `${baseURL}${summeryApi.refreshToken.url}`, 
+            {}, // Empty body
+            
+        );
 
-        const newAccessToken = response.data.accessToken; // Matches your new response structure
+        const newAccessToken = response.data.accessToken;
         
         if (newAccessToken) {
             localStorage.setItem('accessToken', newAccessToken);

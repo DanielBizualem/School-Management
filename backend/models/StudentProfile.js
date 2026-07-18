@@ -7,6 +7,7 @@ const studentProfileSchema = new mongoose.Schema({
     studentID: { type: String, required: true, unique: true },
     studentPhoto: { type: String },
     studentDob: { type: Date },
+    academicYear: String,
     gradeLevel: { 
         type: String, 
         required: true, 
@@ -25,7 +26,7 @@ const studentProfileSchema = new mongoose.Schema({
         required: true 
     },
 
-    enrolledCourses: [{ type: mongoose.Schema.Types.ObjectId, ref: "Course" }],
+    enrolledSections: [{ type: mongoose.Schema.Types.ObjectId, ref: "ClassSection" }],
     grades: [{
         course: { type: mongoose.Schema.Types.ObjectId, ref: "Course" },
         mark: { type: Number }

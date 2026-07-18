@@ -2,7 +2,9 @@ import { User } from "../models/User.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 // Import your new utility helpers
-import { generateAccessToken, generateRefreshToken } from "../utils/utilsToken.js";
+
+import {generateAccessToken} from "../utils/generateAccessToken.js";
+import {generateRefreshToken} from "../utils/generateRefreshToken.js";
 
 
 import { StudentProfile } from "../models/StudentProfile.js";
@@ -18,7 +20,7 @@ export const loginUser = async ({ identifier, password }) => {
             { email: identifier },
             { employeeID: identifier }
         ]
-    });
+    }).select('+refreshTokens');
     if (!user) throw new Error("INVALID_CREDENTIALS");
 
     const isMatch = await bcrypt.compare(password, user.password);
@@ -51,8 +53,9 @@ export const loginUser = async ({ identifier, password }) => {
     // 3. Generate tokens
     const accessToken = generateAccessToken(user);
     const refreshToken = generateRefreshToken(user);
+    
 
-    //user.refreshTokens.push(refreshToken);
+    user.refreshTokens.push(refreshToken);
     await user.save();
 
     return {
@@ -70,15 +73,15 @@ export const loginUser = async ({ identifier, password }) => {
 
 export const refreshUserSession = async (refreshToken) => {
     if (!refreshToken) throw new Error("No Refresh Token provided");
-    const decoded = jwt.verify(refreshToken, process.env.SECRET_REFRESH_TOKEN);
+    const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
 
-    const user = await User.findById(decoded.id);
+    const user = await User.findById(decoded.id).select("+refreshTokens");
     
-    if (!user || user.refreshToken !== refreshToken) {
+    if (!user || !user.refreshTokens.includes(refreshToken)) {
         throw new Error("Invalid Refresh Token");
     }
 
-    const newAccessToken = await generateAccessToken(user._id);
+    const newAccessToken = await generateAccessToken(user);
     
     return { accessToken: newAccessToken };
 };

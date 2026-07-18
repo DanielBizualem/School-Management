@@ -9,6 +9,7 @@ import { StudentProfile } from "../models/studentProfile.js";
 import { sendTemporaryPasswordEmail } from "../utils/sendEmail.js";
 import crypto from 'crypto';
 import { getAdminDetail } from "../services/adminService.js";
+import {SchoolSetting} from "../models/SchoolSetting.js";
 
 export const registerStudent = async (req, res) => {
     const session = await mongoose.startSession();
@@ -17,22 +18,19 @@ export const registerStudent = async (req, res) => {
     try {
         const tempPassword = crypto.randomBytes(4).toString("hex");
 
-        const { newProfile, customStudentID } = await createStudentAccount(
+        const { newProfile, customStudentID, tempPassword: password } = await createStudentAccount(
             req.body, 
             { session, tempPassword }
         );
 
         await session.commitTransaction();
 
-        // REMOVED: The call to sendTemporaryPasswordEmail(...)
-
-        // UPDATED: Include tempPassword in the response data
         res.status(201).json({ 
             message: "Student registered successfully!", 
             data: { 
                 ...newProfile.toObject(), 
                 customStudentID,
-                tempPassword // Now it will be available in res.data.data
+                tempPassword: password 
             } 
         });
     } catch (err) {
@@ -62,23 +60,24 @@ export const registerDirector = async (req, res) => {
 };
 
 export const addCourse = async (req, res) => {
-    try {
-        // req.body expects: { "courseName": "...", "courseCode": "...", "teacherId": "..." }
-        const course = await createNewCourse(req.body);
-        
-        res.status(201).json({ 
-            message: "Course created successfully and assigned to the teacher.", 
-            course 
+    // 1. Add this log to verify what Postman is sending
+    console.log("DEBUG: Incoming Request Body:", req.body);
+
+    const { courseName, courseCode, gradeLevel } = req.body;
+
+    if (!courseName || !courseCode || !gradeLevel || gradeLevel.length === 0) {
+        return res.status(400).json({ 
+            success: false, 
+            message: "Missing data. Please provide courseName, courseCode, and gradeLevel." 
         });
+    }
+
+    try {
+        const course = await createNewCourse(req.body);
+        res.status(201).json({ message: "Success", course });
     } catch (err) {
-        if (err.message === "COURSE_CODE_EXISTS") {
-            return res.status(400).json({ message: "This course code already exists." });
-        }
-        if (err.message === "TEACHER_NOT_FOUND") {
-            return res.status(404).json({ message: "The specified teacher profile was not found." });
-        }
-        
-        res.status(500).json({ message: "Server error configuring course", error: err.message });
+        console.error("DEBUG: Service Error:", err);
+        res.status(500).json({ message: "Server error", error: err.message });
     }
 };
 
@@ -184,5 +183,90 @@ export const getAdminDetailController = async (req, res) => {
         
         console.error("GET_ADMIN_ERROR:", error);
         return res.status(500).json({ success: false, message: "Internal server error." });
+    }
+};
+
+export const registerCourse = async (req, res) => {
+    try {
+        const { courseName, courseCode, gradeLevels } = req.body;
+
+        // 1. Basic Validation
+        if (!courseName || !courseCode || !gradeLevels || gradeLevels.length === 0) {
+            return res.status(400).json({ 
+                success: false, 
+                message: "Please provide course name, code, and at least one grade level." 
+            });
+        }
+
+        // 2. Check if code already exists
+        const existingCourse = await Course.findOne({ courseCode });
+        if (existingCourse) {
+            return res.status(400).json({ 
+                success: false, 
+                message: "Course with this code already exists." 
+            });
+        }
+
+        // 3. Create the course
+        // We save the 'gradeLevels' so the system knows which students 
+        // should be enrolled in this course later.
+        const newCourse = await Course.create({
+            courseName,
+            courseCode,
+            gradeLevels
+        });
+
+        res.status(201).json({ 
+            success: true, 
+            message: "Course registered successfully!", 
+            data: newCourse 
+        });
+    } catch (error) {
+        res.status(500).json({ 
+            success: false, 
+            message: "Server error", 
+            error: error.message 
+        });
+    }
+};
+
+export const initializeSettings = async () => {
+    const existing = await SchoolSetting.findOne();
+    if (!existing) {
+        await SchoolSetting.create({ 
+            currentAcademicYear: "2018",
+            isRegistrationOpen: true
+        });
+    }
+};
+
+export const updateSettings = async (req, res) => {
+    try {
+        const { currentAcademicYear, isRegistrationOpen } = req.body;
+        
+        const settings = await SchoolSetting.findOneAndUpdate(
+            {}, 
+            { currentAcademicYear, isRegistrationOpen },
+            { new: true, upsert: true } // Upsert ensures it creates if it doesn't exist
+        );
+        
+        res.status(200).json(settings);
+    } catch (error) {
+        res.status(500).json({ error: "Failed to update settings" });
+    }
+};
+
+export const assignTeacher = async (req, res) => {
+    try {
+        const { sectionId, teacherId } = req.body;
+        const section = await ClassSection.findByIdAndUpdate(
+            sectionId, 
+            { teacher: teacherId }, 
+            { new: true }
+        ).populate('course teacher'); // Populate to verify change
+        
+        res.status(200).json(section);
+    } catch (error) {
+        res.status(500).json({ error: "Assignment failed" });
     }
 };

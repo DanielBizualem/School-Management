@@ -1,5 +1,5 @@
 import express from "express";
-import { registerStudent, registerTeacher, registerDirector, addCourse, createAdmin, getAllCourses, getAllStudents, getAdminDetailController } from "../controllers/adminController.js";
+import { registerStudent, registerTeacher, registerDirector, addCourse, createAdmin, getAllCourses, getAllStudents, getAdminDetailController, registerCourse, initializeSettings, updateSettings } from "../controllers/adminController.js";
 import { protect, authorizeRoles } from "../middleware/authMiddleware.js";
 import multer from 'multer';
 import { getTeachers, register } from "../controllers/teacherController.js";
@@ -29,7 +29,9 @@ router.post('/registerTeachers', protect, authorizeRoles('admin'), register);
 router.get('/getAllTeachers',protect, authorizeRoles('admin'), getTeachers);
 router.get('/getAdminDetail', protect, authorizeRoles('admin'),getAdminDetailController)
 router.patch("/updateTeacher",protect,authorizeRoles("admin"), updateTeacher);
-
-
+router.post("/registerCourse",protect, authorizeRoles("admin"), addCourse);
+router.get("/getAllCourse",protect, authorizeRoles("admin"), getAllCourses);
+router.post("/initializeYear",protect, authorizeRoles("admin"), initializeSettings)
+router.patch("/updateSetting",protect,authorizeRoles("admin"), updateSettings);
 
 export default router;

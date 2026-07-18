@@ -5,9 +5,11 @@ import bcrypt from "bcrypt";
 import crypto from "crypto";
 import { ParentProfile } from "../models/ParentProfile.js";
 import { Counter } from "../models/Counter.js";
-import { Resend } from 'resend';
+import { Resend } from 'resend'
 import {StudentProfile} from "../models/studentProfile.js";
 import { Admin } from "../models/adminProfile.js";
+import { SchoolSetting } from "../models/SchoolSetting.js";
+import {ClassSection} from "../models/classSection.js";
 
 
 export const createStudentAccount = async (studentData, { session, tempPassword }) => {
@@ -15,47 +17,56 @@ export const createStudentAccount = async (studentData, { session, tempPassword 
         email, fullName, gradeLevel, gender, 
         studentPhoto, studentDob, 
         parentName, parentPhone, parentJob, parentAddress, parentRelation, 
-        familyPhoto, familyPersonDob 
+        familyPhoto, familyPersonDob
     } = studentData;
 
-    // 1. Validation Check
+    // 1. Validation
     const emailExists = await User.findOne({ email }).session(session);
     if (emailExists) throw new Error("EMAIL_EXISTS");
 
-    // 2. Atomic Auto-Increment Engine
+    // 2. Settings & Section Logic (Must be session-aware)
+    const settings = await SchoolSetting.findOne({}).session(session);
+    if (!settings || !settings.isRegistrationOpen) throw new Error("REGISTRATION_CLOSED");
+    
+    const { currentAcademicYear } = settings;
+
+    // FIND OR CREATE SECTIONS
+    let sections = await ClassSection.find({ gradeLevel, academicYear: currentAcademicYear }).session(session);
+    
+    if (sections.length === 0) {
+        // IMPORTANT: Ensure your Course collection has gradeLevels that match 'gradeLevel' string
+        const allCourses = await Course.find({ gradeLevels: gradeLevel }).session(session);
+        
+        if (allCourses.length > 0) {
+            sections = await ClassSection.create(allCourses.map(course => ({
+                course: course._id,
+                gradeLevel,
+                academicYear: currentAcademicYear,
+                teacher: null
+            })), { session });
+        }
+    }
+
+    // 3. ID Generation
     const counter = await Counter.findOneAndUpdate(
         { id: "studentIdSequence" },
         { $inc: { seq: 1 } },
         { new: true, upsert: true, session }
     );
-
     const registeredYear = new Date().getFullYear().toString().slice(-2);
-    const paddedSequence = counter.seq.toString().padStart(5, "0");
-    const customStudentID = `std/${paddedSequence}/${registeredYear}`;
+    const customStudentID = `std/${counter.seq.toString().padStart(5, "0")}/${registeredYear}`;
 
-    if (!customStudentID) throw new Error("ID_GENERATION_FAILED");
-
-    // 3. Save Parent Profile
+    // 4. Save Parent, User, and Profile (Using { session })
     const [newParent] = await ParentProfile.create([{
-        fullName: parentName,
-        phoneNumber: parentPhone,
-        jobType: parentJob,
-        address: parentAddress,
-        relation: parentRelation,
-        familyPhoto,
-        familyPersonDob
+        fullName: parentName, phoneNumber: parentPhone, jobType: parentJob,
+        address: parentAddress, relation: parentRelation, familyPhoto, familyPersonDob
     }], { session });
 
-    // 4. Create User
     const hashedPassword = await bcrypt.hash(tempPassword, 10);
     const [newAccount] = await User.create([{
-        email,
-        password: hashedPassword,
-        role: "student",
-        isFirstLogin: true
+        email, password: hashedPassword, role: "student", isFirstLogin: true
     }], { session });
 
-    // 5. Instantiate Student Profile
     const [newProfile] = await StudentProfile.create([{
         user: newAccount._id,
         fullName,
@@ -64,15 +75,12 @@ export const createStudentAccount = async (studentData, { session, tempPassword 
         gender,
         studentPhoto,
         studentDob,
+        academicYear: currentAcademicYear,
+        enrolledSections: sections.map(s => s._id),
         familyProfile: newParent._id
     }], { session });
 
-    // Updated return to include tempPassword for the PDF
-    return { 
-        newProfile, 
-        customStudentID, 
-        tempPassword // Added this to pass it back to the client
-    };
+    return { newProfile, customStudentID, tempPassword };
 };
 
 export const createTeacherAccount = async ({ email, fullName, phone, department }) => {
@@ -95,25 +103,16 @@ export const createDirectorAccount = async ({ email }) => {
     return { id: account._id, tempPassword };
 };
 
-export const createNewCourse = async ({ courseName, courseCode, teacherId }) => {
-    // 1. Validation: Ensure the course code is unique
-    const codeExists = await Course.findOne({ courseCode });
-    if (codeExists) throw new Error("COURSE_CODE_EXISTS");
+export const createNewCourse = async ({ courseName, courseCode, gradeLevel }) => {
+    console.log("DEBUG: Service received:", { courseName, courseCode, gradeLevel });
 
-    // 2. Validation: Ensure the assigned teacher actually exists
-    const teacher = await StaffProfile.findById(teacherId);
-    if (!teacher) throw new Error("TEACHER_NOT_FOUND");
-
-    // 3. Create the course document and map it to the teacher
     const newCourse = await Course.create({ 
         courseName,
         courseCode,
-        teacher: teacherId
+        gradeLevel
     });
 
-    // 4. Update the teacher's profile array to include this new course
-    teacher.assignedCourses.push(newCourse._id);
-    await teacher.save();
+    console.log("DEBUG: Saved Course:", newCourse);
 
     return newCourse;
 };

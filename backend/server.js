@@ -5,7 +5,7 @@ import mongoose from "mongoose";
 import dotenv from "dotenv";
 import { connectDB } from "./config/Connect.js";
 import cors from "cors";
-
+import cookieParser from "cookie-parser";
 import authRoutes from "./routes/authRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import directorRoutes from "./routes/directorRoutes.js";
@@ -25,7 +25,7 @@ app.use(cors({
     origin: "http://localhost:3000", // Your exact Next.js frontend local web URL
     credentials: true
 }));
-
+app.use(cookieParser());
 app.use("/api/auth", authRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/director", directorRoutes);

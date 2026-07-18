@@ -6,6 +6,13 @@ export const login = async (req, res) => {
         console.log("Attempting login for:", identifier); // Log before calling service
         
         const data = await loginUser({ identifier, password });
+
+        res.cookie("refreshToken", data.refreshToken, {
+          httpOnly: true,
+          secure: false, // Set to true only if using HTTPS
+          sameSite: "lax", // 'lax' is safer for local development
+          maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days (set to your preference)
+      });
         
         return res.status(200).json({
             success: true, // Make sure your frontend checks for this
@@ -14,6 +21,7 @@ export const login = async (req, res) => {
             refreshToken: data.refreshToken,
             user: data.user
         });
+        
     } catch (error) {
         // Log the full error to your server terminal so you can see it
         console.error("SERVER LOGIN ERROR:", error); 

@@ -27,7 +27,7 @@ export default function Login() {
             if (response.data.success) {
                 // Save tokens
                 localStorage.setItem("accessToken", response.data.accessToken);
-                localStorage.setItem("refreshToken", response.data.refreshToken);
+                //localStorage.setItem("refreshToken", response.data.refreshToken);
                 const role = response.data.user.role; 
                 console.log("Logged in user role:", role);
                 // Role-based routing map
