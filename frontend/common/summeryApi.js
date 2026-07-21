@@ -56,6 +56,10 @@ export const summeryApi = {
         url: "/api/admin/registerCourse",
         method: "POST"
     },
+    getTranscript:{
+        url: "/api/student/transcript",
+        method: "GET"
+    }
 };
 
 export default summeryApi;

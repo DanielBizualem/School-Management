@@ -1,15 +1,13 @@
-
 import mongoose from "mongoose";
 
 const classSectionSchema = new mongoose.Schema({
-    course: { type: mongoose.Schema.Types.ObjectId, ref: "Course", required: true },
-    gradeLevel: { type: String, required: true },
-    teacher: { 
-        type: mongoose.Schema.Types.ObjectId, 
-        ref: "StaffProfile",
-        default: null
+    sectionName: { type: String, required: true }, // e.g., "10th Grade Section A"
+    gradeLevel: { 
+        type: String, 
+        required: true, 
+        enum: ["9", "10", "11", "12"] 
     },
-    academicYear: { type: String, required: true }
-});
+    homeroomTeacher: { type: mongoose.Schema.Types.ObjectId, ref: "StaffProfile" }
+}, { timestamps: true });
 
-export const ClassSection = mongoose.models.ClassSection || mongoose.model("ClassSection", classSectionSchema);
+export const ClassSection = mongoose.model("ClassSection", classSectionSchema);

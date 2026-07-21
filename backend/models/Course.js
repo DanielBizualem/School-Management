@@ -1,30 +1,34 @@
 import mongoose from "mongoose";
 import { StudentProfile } from "./StudentProfile.js";
+//import { ClassSection } from "./classSection.js";
 
 const courseSchema = new mongoose.Schema({
     courseName: { type: String, required: true },
     courseCode: { type: String, required: true, unique: true },
-    gradeLevel: { type: [String], required: true }
+    gradeLevels: { 
+        type: [String], 
+        required: true, 
+        enum: ["9", "10", "11", "12"] 
+    },
 }, { timestamps: true });
 
 courseSchema.post('save', async function(doc, next) {
     try {
-        // Find students whose gradeLevel exists in the new course's gradeLevel array
-        const studentsToUpdate = await StudentProfile.find({
-            gradeLevel: { $in: doc.gradeLevel }
-        });
-
-        if (studentsToUpdate.length > 0) {
-            // Bulk update to push the new course into their grades array
-            await StudentProfile.updateMany(
-                { gradeLevel: { $in: doc.gradeLevel } },
-                { 
-                    $push: { 
-                        grades: { course: doc._id, mark: 0 } // Initialize mark to 0 or null
+        // 1. Update existing student profiles to include this course with separate semester grades
+        await StudentProfile.updateMany(
+            { gradeLevel: { $in: doc.gradeLevels } },
+            { 
+                $push: { 
+                    grades: { 
+                        course: doc._id, 
+                        semester1Mark: 0, 
+                        semester2Mark: 0 
                     } 
-                }
-            );
-        }
+                } 
+            }
+        );
+
+       
         next();
     } catch (error) {
         next(error);

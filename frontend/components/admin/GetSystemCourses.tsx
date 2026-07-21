@@ -50,7 +50,7 @@ export default function GetSystemCourses({ courses: initialCourses }: GetSystemC
             setFormError(null);
             const res = await Axios({
                 ...summeryApi.addCourse,
-                data: { courseName: courseName.trim(), courseCode: courseId.trim(), gradeLevels: selectedGrades }
+                data: { courseName: courseName.trim(), courseCode: courseId.trim(), gradeLevel: selectedGrades }
             });
             // Optimistically reflect the new course without waiting on a parent refetch.
             if (res?.data?.data) {
@@ -127,7 +127,7 @@ export default function GetSystemCourses({ courses: initialCourses }: GetSystemC
                             </div>
                             <h4 className="font-semibold leading-snug text-slate-800">{course.courseName}</h4>
                             <div className="mt-auto flex flex-wrap gap-1.5 pt-1">
-                                {course.gradeLevels?.map(grade => (
+                                {course.gradeLevel?.map(grade => (
                                     <span
                                         key={grade}
                                         className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-1 text-[10px] font-medium text-slate-600"

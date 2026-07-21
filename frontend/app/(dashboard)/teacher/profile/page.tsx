@@ -35,7 +35,6 @@ interface TeacherProfile {
         relationship?: string;
         phoneNumber?: string;
     };
-    
 }
 
 export default function TeacherProfile() {

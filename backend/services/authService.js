@@ -18,13 +18,22 @@ export const loginUser = async ({ identifier, password }) => {
     const user = await User.findOne({
         $or: [
             { email: identifier },
-            { employeeID: identifier }
+            { employeeID: identifier },
+            { studentID: identifier }
         ]
     }).select('+refreshTokens');
-    if (!user) throw new Error("INVALID_CREDENTIALS");
+    //if (!user) throw new Error("INVALID_CREDENTIALS");
+    if (!user) {
+        console.log("DEBUG: User not found for identifier:", identifier);
+        throw new Error("INVALID_CREDENTIALS");
+    }
 
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) throw new Error("INVALID_CREDENTIALS");
+    //if (!isMatch) throw new Error("INVALID_CREDENTIALS");
+    if (!isMatch) {
+        console.log("DEBUG: Password mismatch for user:", user.email);
+        throw new Error("INVALID_CREDENTIALS");
+    }
 
     // 2. Fetch specific profile based on role
     // This allows us to return the profile data needed for the specific dashboard
@@ -66,7 +75,7 @@ export const loginUser = async ({ identifier, password }) => {
             email: user.email, 
             role: user.role, 
             isFirstLogin: user.isFirstLogin,
-            profile // Frontend now receives the profile object directly
+            profile
         }
     };
 };

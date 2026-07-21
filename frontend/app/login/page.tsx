@@ -23,7 +23,7 @@ export default function Login() {
                 ...summeryApi.login,
                 data:credentials
             })
-
+            console.log(response.data);
             if (response.data.success) {
                 // Save tokens
                 localStorage.setItem("accessToken", response.data.accessToken);
@@ -35,7 +35,7 @@ export default function Login() {
                     admin: "/admin/dashboard",
                     director: "/director/dashboard",
                     teacher: "/teacher/profile",
-                    student: "/student/dashboard",
+                    student: "/student/profile",
                     parent: "/parent/dashboard",
                 };
 

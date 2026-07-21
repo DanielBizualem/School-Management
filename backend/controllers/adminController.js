@@ -5,7 +5,8 @@ import { Admin } from "../models/adminProfile.js";
 import bcrypt from "bcryptjs";
 import mongoose from "mongoose";
 import { Course } from "../models/Course.js";
-import { StudentProfile } from "../models/studentProfile.js";
+//import { StudentProfile } from "../models/StudentProfile.js";
+import { StudentProfile } from "../models/StudentProfile.js";
 import { sendTemporaryPasswordEmail } from "../utils/sendEmail.js";
 import crypto from 'crypto';
 import { getAdminDetail } from "../services/adminService.js";
@@ -188,10 +189,10 @@ export const getAdminDetailController = async (req, res) => {
 
 export const registerCourse = async (req, res) => {
     try {
-        const { courseName, courseCode, gradeLevels } = req.body;
+        const { courseName, courseCode, gradeLevel } = req.body;
 
         // 1. Basic Validation
-        if (!courseName || !courseCode || !gradeLevels || gradeLevels.length === 0) {
+        if (!courseName || !courseCode || !gradeLevel || gradeLevel.length === 0) {
             return res.status(400).json({ 
                 success: false, 
                 message: "Please provide course name, code, and at least one grade level." 
@@ -213,7 +214,7 @@ export const registerCourse = async (req, res) => {
         const newCourse = await Course.create({
             courseName,
             courseCode,
-            gradeLevels
+            gradeLevel
         });
 
         res.status(201).json({ 

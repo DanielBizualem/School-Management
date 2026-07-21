@@ -1,5 +1,6 @@
 import { getUserDetails, updateUserData, updateUserPassword } from "../services/userService.js";
 import { StaffProfile } from "../models/StaffProfile.js";
+import { StudentProfile } from "../models/StudentProfile.js";
 //import AdminProfile from "../models/AdminProfile.js";
 
 
@@ -45,7 +46,9 @@ export const getUserDetail = async (req, res) => {
             profile = await AdminProfile.findOne({ user: userId });
         } else if (role === 'teacher' || role === 'director') {
             profile = await StaffProfile.findOne({ user: userId });
-        } else {
+        } else if (role === 'student' || role === 'director') {
+            profile = await StudentProfile.findOne({ user: userId });}
+        else {
             return res.status(403).json({ message: "Role profile not found." });
         }
 

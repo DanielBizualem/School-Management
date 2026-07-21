@@ -9,9 +9,9 @@ const studentProfileSchema = new mongoose.Schema({
     studentDob: { type: Date },
     academicYear: String,
     gradeLevel: { 
-        type: String, 
-        required: true, 
-        enum: ["9th Grade", "10th Grade", "11th Grade", "12th Grade"] 
+        type: String,
+        required: true,
+        enum: ["9", "10", "11", "12"] 
     },
     gender: {
         type: String,
@@ -22,14 +22,22 @@ const studentProfileSchema = new mongoose.Schema({
     
     familyProfile: { 
         type: mongoose.Schema.Types.ObjectId, 
-        ref: "ParentProfile", 
+        ref: "ParentProfile",
         required: true 
     },
 
     enrolledSections: [{ type: mongoose.Schema.Types.ObjectId, ref: "ClassSection" }],
+
+    //points related to the course for the student
     grades: [{
         course: { type: mongoose.Schema.Types.ObjectId, ref: "Course" },
-        mark: { type: Number }
+        semester1Mark: { type: Number, default: 0, min: 0, max: 100 },
+        semester2Mark: { type: Number, default: 0, min: 0, max: 100 },
+        assessments: [{
+            title: { type: String, required: true },
+            score: { type: Number, required: true, default: 0 },
+            maxScore: { type: Number, required: true, default: 10 }
+        }]
     }]
 }, { timestamps: true });
 

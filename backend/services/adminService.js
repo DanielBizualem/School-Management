@@ -6,48 +6,50 @@ import crypto from "crypto";
 import { ParentProfile } from "../models/ParentProfile.js";
 import { Counter } from "../models/Counter.js";
 import { Resend } from 'resend'
-import {StudentProfile} from "../models/studentProfile.js";
+import { StudentProfile } from "../models/StudentProfile.js";
 import { Admin } from "../models/adminProfile.js";
 import { SchoolSetting } from "../models/SchoolSetting.js";
 import {ClassSection} from "../models/classSection.js";
 
 
 export const createStudentAccount = async (studentData, { session, tempPassword }) => {
-    const { 
+    let { 
         email, fullName, gradeLevel, gender, 
         studentPhoto, studentDob, 
         parentName, parentPhone, parentJob, parentAddress, parentRelation, 
         familyPhoto, familyPersonDob
     } = studentData;
 
+    // 0. Normalize gradeLevel to match your enum ("10th Grade" -> "10" or keep standard)
+    const normalizedGrade = gradeLevel.replace(/[^0-9]/g, ""); 
+    const targetGrade = normalizedGrade ? normalizedGrade : gradeLevel;
+
     // 1. Validation
     const emailExists = await User.findOne({ email }).session(session);
     if (emailExists) throw new Error("EMAIL_EXISTS");
 
-    // 2. Settings & Section Logic (Must be session-aware)
+    // 2. Settings
     const settings = await SchoolSetting.findOne({}).session(session);
     if (!settings || !settings.isRegistrationOpen) throw new Error("REGISTRATION_CLOSED");
-    
     const { currentAcademicYear } = settings;
 
-    // FIND OR CREATE SECTIONS
-    let sections = await ClassSection.find({ gradeLevel, academicYear: currentAcademicYear }).session(session);
-    
-    if (sections.length === 0) {
-        // IMPORTANT: Ensure your Course collection has gradeLevels that match 'gradeLevel' string
-        const allCourses = await Course.find({ gradeLevels: gradeLevel }).session(session);
-        
-        if (allCourses.length > 0) {
-            sections = await ClassSection.create(allCourses.map(course => ({
-                course: course._id,
-                gradeLevel,
-                academicYear: currentAcademicYear,
-                teacher: null
-            })), { session });
-        }
-    }
+    // 3. GRADE INITIALIZATION ENGINE (Courses only, NO Sections)
+    // Find all courses relevant to this grade level
+    const relevantCourses = await Course.find({
+        $or: [
+            { gradeLevels: { $in: [gradeLevel, targetGrade] } },
+            { gradeLevel: { $in: [gradeLevel, targetGrade] } }
+        ]
+    }).session(session);
 
-    // 3. ID Generation
+    // Build the initial grades mapping for their transcript/marks
+    const studentGrades = relevantCourses.map(course => ({
+        course: course._id,
+        semester1Mark: 0,
+        semester2Mark: 0
+    }));
+
+    // 4. ID Generation
     const counter = await Counter.findOneAndUpdate(
         { id: "studentIdSequence" },
         { $inc: { seq: 1 } },
@@ -56,27 +58,30 @@ export const createStudentAccount = async (studentData, { session, tempPassword 
     const registeredYear = new Date().getFullYear().toString().slice(-2);
     const customStudentID = `std/${counter.seq.toString().padStart(5, "0")}/${registeredYear}`;
 
-    // 4. Save Parent, User, and Profile (Using { session })
+    // 5. Save Parent Profile
     const [newParent] = await ParentProfile.create([{
         fullName: parentName, phoneNumber: parentPhone, jobType: parentJob,
         address: parentAddress, relation: parentRelation, familyPhoto, familyPersonDob
     }], { session });
 
+    // 6. Create User
     const hashedPassword = await bcrypt.hash(tempPassword, 10);
     const [newAccount] = await User.create([{
         email, password: hashedPassword, role: "student", isFirstLogin: true
     }], { session });
 
+    // 7. Instantiate Student Profile (enrolledSections is left empty for later balancing)
     const [newProfile] = await StudentProfile.create([{
         user: newAccount._id,
         fullName,
         studentID: customStudentID,
-        gradeLevel,
+        gradeLevel: targetGrade, // Matches your enum format securely
         gender,
         studentPhoto,
         studentDob,
         academicYear: currentAcademicYear,
-        enrolledSections: sections.map(s => s._id),
+        enrolledSections: [], // <--- Separated! Assigned later via batch distribution.
+        grades: studentGrades, // Initializes course mark slots for the transcript
         familyProfile: newParent._id
     }], { session });
 
@@ -109,7 +114,7 @@ export const createNewCourse = async ({ courseName, courseCode, gradeLevel }) =>
     const newCourse = await Course.create({ 
         courseName,
         courseCode,
-        gradeLevel
+        gradeLevels:gradeLevel
     });
 
     console.log("DEBUG: Saved Course:", newCourse);

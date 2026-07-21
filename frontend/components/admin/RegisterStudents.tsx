@@ -199,8 +199,15 @@ export default function RegisterStudent({ onSuccess }: RegisterStudentProps): Re
                             <input type="text" placeholder="Full Legal Name" value={form.fullName} onChange={e => setForm({...form, fullName: e.target.value})} className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none" required />
                             <input type="email" placeholder="Email Address" value={form.email} onChange={e => setForm({...form, email: e.target.value})} className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none" required />
                             <input type="date" value={form.studentDob} onChange={e => setForm({...form, studentDob: e.target.value})} className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none" required />
-                            <select value={form.gradeLevel} onChange={e => setForm({...form, gradeLevel: e.target.value})} className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none">
-                                <option>9th Grade</option><option>10th Grade</option><option>11th Grade</option><option>12th Grade</option>
+                            <select 
+                                value={form.gradeLevel} 
+                                onChange={e => setForm({...form, gradeLevel: e.target.value})} 
+                                className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none"
+                            >
+                                <option value="9">9th Grade</option>
+                                <option value="10">10th Grade</option>
+                                <option value="11">11th Grade</option>
+                                <option value="12">12th Grade</option>
                             </select>
                             <select value={form.gender} onChange={e => setForm({...form, gender: e.target.value as any})} className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none">
                                 <option>Male</option><option>Female</option>
