@@ -35,6 +35,7 @@ export default function AdminNav({ children, activeDashboardTab, onTabChange }: 
         { label: "Students List", id: "students" as const, icon: Users },
         { label: "Teachers List", id: "teachers" as const, icon: Users },
         { label: "All Courses", id: "courses" as const, icon: BookOpen },
+        {label: "Section Control", id: "sections" as const, icon: BookOpen},
         { label: "Register Students", id: "register" as const, icon: UserPlus },
         { label: "Settings", id: "settings" as const, icon: Settings2 }
     ];

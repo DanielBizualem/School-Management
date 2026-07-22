@@ -169,3 +169,4 @@ export const getAdminDetail = async (adminId) => {
         email: adminProfile.user?.email || "N/A"
     };
 };
+

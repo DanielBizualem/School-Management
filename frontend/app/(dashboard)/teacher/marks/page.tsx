@@ -6,84 +6,87 @@ import summeryApi from "@/common/summeryApi";
 
 interface AssessmentInput {
     title: string;
-    score: number;
     maxScore: number;
+    score: number;
 }
 
 export default function TeacherGradesPage() {
     const [loading, setLoading] = useState<boolean>(true);
     const [submitting, setSubmitting] = useState<boolean>(false);
+    const [savingMaxScores, setSavingMaxScores] = useState<boolean>(false);
     
     // Dropdown lists
     const [courses, setCourses] = useState<any[]>([]);
+    const [sections, setSections] = useState<any[]>([]);
     const [students, setStudents] = useState<any[]>([]);
 
     // Selected filters & form state
     const [selectedCourseId, setSelectedCourseId] = useState<string>("");
+    const [selectedSectionId, setSelectedSectionId] = useState<string>("");
     const [selectedStudentId, setSelectedStudentId] = useState<string>("");
     const [activeSemester, setActiveSemester] = useState<"semester1" | "semester2">("semester1");
 
-    // Dynamic assessment rows managed by the teacher
+    // Dynamic assessment rows
     const [assessments, setAssessments] = useState<AssessmentInput[]>([
-        { title: "Quiz 1", score: 0, maxScore: 10 },
-        { title: "Midterm Examination", score: 0, maxScore: 30 }
+        { title: "Quiz 1", maxScore: 10, score: 0 },
+        { title: "Midterm Examination", maxScore: 30, score: 0 }
     ]);
 
-    // Fetch courses taught by this teacher (adjust endpoint based on your teacher API)
-   {/**
+    // 1. Fetch courses and sections automatically from profile
     useEffect(() => {
-        const fetchTeacherCourses = async () => {
+        const fetchTeacherProfileAndData = async () => {
             try {
                 setLoading(true);
-                // Example endpoint: fetch courses assigned to the logged-in teacher
                 const res = await Axios({ ...summeryApi.getTeacherCourses }); 
-                const courseList = res.data?.data || [];
+                const courseList = res.data?.data || res.data || [];
                 setCourses(courseList);
+
                 if (courseList.length > 0) {
-                    setSelectedCourseId(courseList[0]._id);
+                    const firstCourseId = courseList[0]._id || courseList[0];
+                    setSelectedCourseId(typeof firstCourseId === 'string' ? firstCourseId : firstCourseId._id);
                 }
+
+                const sectionsRes = await Axios({ ...summeryApi.getAllClassSection });
+                const sectionList = sectionsRes.data?.data || sectionsRes.data || [];
+                setSections(sectionList);
             } catch (error) {
-                console.error("Failed to load teacher courses", error);
+                console.error("Failed to load teacher profile data", error);
             } finally {
                 setLoading(false);
             }
         };
 
-        fetchTeacherCourses();
+        fetchTeacherProfileAndData();
     }, []);
- */}
 
-    // Fetch students enrolled in the selected course / grade level
-    {/**
+    // 2. Fetch students enrolled in the selected section
     useEffect(() => {
-        if (!selectedCourseId) return;
+        if (!selectedSectionId) {
+            setStudents([]);
+            setSelectedStudentId("");
+            return;
+        }
 
-        const fetchCourseStudents = async () => {
+        const fetchSectionStudents = async () => {
             try {
-                // Example endpoint to fetch students taking this specific course ID
                 const res = await Axios({ 
                     ...summeryApi.getStudentsByCourse, 
-                    url: `${summeryApi.getStudentsByCourse.url}/${selectedCourseId}` 
+                    url: `${summeryApi.getStudentsByCourse.url}/${selectedSectionId}` 
                 });
-                const studentList = res.data?.data || [];
+                const studentList = res.data?.data || res.data || [];
                 setStudents(studentList);
-                if (studentList.length > 0) {
-                    setSelectedStudentId(studentList[0]._id);
-                } else {
-                    setSelectedStudentId("");
-                }
+                setSelectedStudentId(""); // Reset student selection when section changes
             } catch (error) {
-                console.error("Failed to load course students", error);
+                console.error("Failed to load section students", error);
             }
         };
 
-        fetchCourseStudents();
-    }, [selectedCourseId]);
- */}
+        fetchSectionStudents();
+    }, [selectedSectionId]);
 
     // Add a new assessment row dynamically
     const handleAddAssessmentRow = () => {
-        setAssessments([...assessments, { title: "", score: 0, maxScore: 10 }]);
+        setAssessments([...assessments, { title: "", maxScore: 10, score: 0 }]);
     };
 
     // Remove an assessment row
@@ -99,34 +102,63 @@ export default function TeacherGradesPage() {
         setAssessments(updated);
     };
 
-    // Submit grades to the backend API
-    const handleSubmitScores = async (e: React.FormEvent) => {
+    // Step 2: Save Max Scores for the Section
+    const handleSaveMaxScores = async () => {
+        if (!selectedSectionId || !selectedCourseId) {
+            alert("Please select a section first.");
+            return;
+        }
+
+        try {
+            setSavingMaxScores(true);
+            const payload = {
+                courseId: selectedCourseId,
+                sectionId: selectedSectionId,
+                semester: activeSemester,
+                assessments: assessments.map(a => ({ title: a.title, maxScore: a.maxScore }))
+            };
+
+            // Use your appropriate endpoint to save section max scores if separate, or pass along
+            await Axios({
+                ...summeryApi.updateStudentGrades, // Adjust endpoint if you have a specific route for max scores configuration
+                data: payload
+            });
+
+            alert("Assessment maximum scores saved successfully for this section!");
+        } catch (error) {
+            console.error("Failed to save max scores", error);
+            alert("Error saving max scores. Please try again.");
+        } finally {
+            setSavingMaxScores(false);
+        }
+    };
+
+    // Step 3: Submit Student Scores
+    const handleSubmitStudentScores = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!selectedStudentId || !selectedCourseId) {
-            alert("Please select both a course and a student.");
+        if (!selectedStudentId || !selectedSectionId || !selectedCourseId) {
+            alert("Please ensure a section and student are selected.");
             return;
         }
 
         try {
             setSubmitting(true);
-            // Payload to send to your backend student score controller
             const payload = {
                 studentId: selectedStudentId,
                 courseId: selectedCourseId,
+                sectionId: selectedSectionId,
                 semester: activeSemester,
                 assessments: assessments
             };
 
-            {/**
             await Axios({
-                ...summeryApi.updateStudentGrades, // Make sure this matches your summeryApi configuration
+                ...summeryApi.updateStudentGrades,
                 data: payload
             });
-         */}
 
             alert("Student grades successfully updated!");
         } catch (error) {
-            console.error("Failed to save grades", error);
+            console.error("Failed to save student grades", error);
             alert("Error saving grades. Please try again.");
         } finally {
             setSubmitting(false);
@@ -143,7 +175,7 @@ export default function TeacherGradesPage() {
             <div className="bg-white p-6 rounded-2xl border border-slate-200/60 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
                     <h1 className="text-xl font-black text-slate-900">Teacher Grade Management</h1>
-                    <p className="text-xs text-slate-500 mt-1">Assign custom max scores and record student assessment marks</p>
+                    <p className="text-xs text-slate-500 mt-1">Configure section assessments and manage individual student marks</p>
                 </div>
 
                 {/* Semester Switcher */}
@@ -165,120 +197,154 @@ export default function TeacherGradesPage() {
                 </div>
             </div>
 
-            {/* Selection Controls Form */}
-            <form onSubmit={handleSubmitSetup => handleSubmitScores(handleSubmitSetup)} className="bg-white p-6 rounded-2xl border border-slate-200/60 shadow-sm space-y-6">
+            {/* Selection Controls Form container */}
+            <div className="bg-white p-6 rounded-2xl border border-slate-200/60 shadow-sm space-y-6">
+                {/* 1. Side-by-side Select Section and Select Student Dropdowns */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {/* Course Selector */}
+                    {/* Section Selector */}
                     <div>
-                        <label className="block text-[10px] font-bold text-slate-600 uppercase mb-2">Select Course</label>
+                        <label className="block text-[10px] font-bold text-slate-600 uppercase mb-2">Select Section</label>
                         <select 
-                            value={selectedCourseId} 
-                            onChange={(e) => setSelectedCourseId(e.target.value)}
+                            value={selectedSectionId} 
+                            onChange={(e) => {
+                                setSelectedSectionId(e.target.value);
+                                setSelectedStudentId(""); // Reset student on section change
+                            }}
                             className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 outline-none focus:border-slate-400 transition"
-                            required
                         >
-                            {courses.map((course: any) => (
-                                <option key={course._id} value={course._id}>
-                                    {course.courseName} ({course.courseCode})
+                            <option value="">-- Select Section --</option>
+                            {sections.map((section: any) => (
+                                <option key={section._id} value={section._id}>
+                                    {section.sectionName || section.name || `Section ${section._id.slice(-4)}`}
                                 </option>
                             ))}
                         </select>
                     </div>
 
-                    {/* Student Selector */}
+                    {/* Student Selector (Only available after section is selected) */}
                     <div>
                         <label className="block text-[10px] font-bold text-slate-600 uppercase mb-2">Select Student</label>
                         <select 
                             value={selectedStudentId} 
                             onChange={(e) => setSelectedStudentId(e.target.value)}
-                            className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 outline-none focus:border-slate-400 transition"
-                            required
+                            disabled={!selectedSectionId}
+                            className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 outline-none focus:border-slate-400 transition disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            {students.length === 0 ? (
-                                <option value="">No students found in this course</option>
-                            ) : (
-                                students.map((student: any) => (
-                                    <option key={student._id} value={student._id}>
-                                        {student.fullName} ({student.studentID})
-                                    </option>
-                                ))
-                            )}
+                            <option value="">{selectedSectionId ? "-- Select Specific Student --" : "Select a section first"}</option>
+                            {students.map((student: any) => (
+                                <option key={student._id} value={student._id}>
+                                    {student.personalInfo?.fullName || student.fullName} ({student.studentID || student.employeeID || "ID N/A"})
+                                </option>
+                            ))}
                         </select>
                     </div>
                 </div>
 
-                {/* Dynamic Assessment Matrix */}
-                <div className="space-y-4 pt-4 border-t border-slate-100">
-                    <div className="flex justify-between items-center">
-                        <div>
-                            <h3 className="text-sm font-bold text-slate-800">Assessment Components & Weights</h3>
-                            <p className="text-[10px] text-slate-400">Define titles, student scores, and the teacher-assigned maximum point value.</p>
-                        </div>
-                        <button 
-                            type="button" 
-                            onClick={handleAddAssessmentRow}
-                            className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-xl transition"
-                        >
-                            + Add Assessment
-                        </button>
-                    </div>
-
-                    <div className="space-y-3">
-                        {assessments.map((item, index) => (
-                            <div key={index} className="flex items-center gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200/60">
-                                <input 
-                                    type="text" 
-                                    placeholder="Assessment Title (e.g. Quiz 2)" 
-                                    value={item.title}
-                                    onChange={(e) => handleRowChange(index, 'title', e.target.value)}
-                                    className="flex-grow p-2 bg-white border border-slate-200 rounded-lg text-xs outline-none font-medium"
-                                    required
-                                />
-                                <div className="flex items-center gap-1">
-                                    <span className="text-[10px] font-bold text-slate-400 uppercase">Score:</span>
-                                    <input 
-                                        type="number" 
-                                        value={item.score}
-                                        onChange={(e) => handleRowChange(index, 'score', Number(e.target.value))}
-                                        className="w-20 p-2 bg-white border border-slate-200 rounded-lg text-xs outline-none font-mono font-bold text-teal-600 text-center"
-                                        min="0"
-                                        required
-                                    />
-                                </div>
-                                <div className="flex items-center gap-1">
-                                    <span className="text-[10px] font-bold text-slate-400 uppercase">Max:</span>
-                                    <input 
-                                        type="number" 
-                                        value={item.maxScore}
-                                        onChange={(e) => handleRowChange(index, 'maxScore', Number(e.target.value))}
-                                        className="w-20 p-2 bg-white border border-slate-200 rounded-lg text-xs outline-none font-mono font-bold text-slate-700 text-center"
-                                        min="1"
-                                        required
-                                    />
-                                </div>
-                                <button 
-                                    type="button" 
-                                    onClick={() => handleRemoveRow(index)}
-                                    className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition font-bold text-xs"
-                                >
-                                    ✕
-                                </button>
+                {/* 4. Mutually Exclusive Replacement Blocks (Never stacked together) */}
+                
+                {/* Condition A: Section is selected, but NO student is selected -> Show Assessment Components & Weights */}
+                {selectedSectionId && !selectedStudentId && (
+                    <div className="space-y-4 pt-4 border-t border-slate-100 animate-fadeIn">
+                        <div className="flex justify-between items-center">
+                            <div>
+                                <h3 className="text-sm font-bold text-slate-800">Assessment Components & Weights</h3>
+                                <p className="text-[10px] text-slate-400">Define titles and maximum point values for this section's course.</p>
                             </div>
-                        ))}
-                    </div>
-                </div>
+                            <button 
+                                type="button" 
+                                onClick={handleAddAssessmentRow}
+                                className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-xl transition"
+                            >
+                                + Add Assessment
+                            </button>
+                        </div>
 
-                {/* Submit Button */}
-                <div className="flex justify-end pt-4 border-t border-slate-100">
-                    <button 
-                        type="submit" 
-                        disabled={submitting || students.length === 0}
-                        className="px-6 py-2.5 bg-slate-950 hover:bg-slate-900 text-white font-bold text-xs rounded-xl transition shadow-sm disabled:opacity-50"
-                    >
-                        {submitting ? "Saving Grades..." : "Save Assessment Grades"}
-                    </button>
-                </div>
-            </form>
+                        <div className="space-y-3">
+                            {assessments.map((item, index) => (
+                                <div key={index} className="flex items-center gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200/60">
+                                    <input 
+                                        type="text" 
+                                        placeholder="Assessment Title (e.g. Quiz 2)" 
+                                        value={item.title}
+                                        onChange={(e) => handleRowChange(index, 'title', e.target.value)}
+                                        className="flex-grow p-2 bg-white border border-slate-200 rounded-lg text-xs outline-none font-medium"
+                                    />
+                                    <div className="flex items-center gap-1">
+                                        <span className="text-[10px] font-bold text-slate-400 uppercase">Max Score:</span>
+                                        <input 
+                                            type="number" 
+                                            value={item.maxScore}
+                                            onChange={(e) => handleRowChange(index, 'maxScore', Number(e.target.value))}
+                                            className="w-24 p-2 bg-white border border-slate-200 rounded-lg text-xs outline-none font-mono font-bold text-slate-700 text-center"
+                                            min="1"
+                                        />
+                                    </div>
+                                    <button 
+                                        type="button" 
+                                        onClick={() => handleRemoveRow(index)}
+                                        className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition font-bold text-xs"
+                                    >
+                                        ✕
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Save Max Scores Button */}
+                        <div className="flex justify-end pt-2">
+                            <button 
+                                type="button"
+                                onClick={handleSaveMaxScores}
+                                disabled={savingMaxScores}
+                                className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl transition shadow-sm disabled:opacity-50"
+                            >
+                                {savingMaxScores ? "Saving Max Scores..." : "Save Section Max Scores"}
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {/* Condition B: Student is selected from drop-down -> Replace with Enter Marks for Selected Student */}
+                {selectedStudentId && (
+                    <form onSubmit={handleSubmitStudentScores} className="space-y-4 pt-4 border-t border-slate-100 animate-fadeIn">
+                        <div>
+                            <h3 className="text-sm font-bold text-slate-800">Enter Marks for Selected Student</h3>
+                            <p className="text-[10px] text-slate-400">Provide individual scores for the chosen student against the established max limits.</p>
+                        </div>
+
+                        <div className="space-y-3">
+                            {assessments.map((item, index) => (
+                                <div key={`score-${index}`} className="flex items-center justify-between bg-slate-50 p-3 rounded-xl border border-slate-200/60">
+                                    <span className="text-xs font-bold text-slate-700">{item.title || `Assessment ${index + 1}`} (Max: {item.maxScore})</span>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-[10px] font-bold text-slate-400 uppercase">Score:</span>
+                                        <input 
+                                            type="number" 
+                                            value={item.score}
+                                            onChange={(e) => handleRowChange(index, 'score', Number(e.target.value))}
+                                            className="w-24 p-2 bg-white border border-slate-200 rounded-lg text-xs outline-none font-mono font-bold text-teal-600 text-center"
+                                            min="0"
+                                            max={item.maxScore}
+                                            required
+                                        />
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Submit Student Marks Button */}
+                        <div className="flex justify-end pt-2">
+                            <button 
+                                type="submit" 
+                                disabled={submitting}
+                                className="px-6 py-2.5 bg-slate-950 hover:bg-slate-900 text-white font-bold text-xs rounded-xl transition shadow-sm disabled:opacity-50"
+                            >
+                                {submitting ? "Saving Student Grades..." : "Save Student Grades"}
+                            </button>
+                        </div>
+                    </form>
+                )}
+            </div>
         </div>
     );
 }

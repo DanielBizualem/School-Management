@@ -11,6 +11,7 @@ import { sendTemporaryPasswordEmail } from "../utils/sendEmail.js";
 import crypto from 'crypto';
 import { getAdminDetail } from "../services/adminService.js";
 import {SchoolSetting} from "../models/SchoolSetting.js";
+import { ClassSection } from "../models/classSection.js";
 
 export const registerStudent = async (req, res) => {
     const session = await mongoose.startSession();
@@ -257,17 +258,88 @@ export const updateSettings = async (req, res) => {
     }
 };
 
-export const assignTeacher = async (req, res) => {
+export const assignTeacherToSection = async (req, res) => {
     try {
-        const { sectionId, teacherId } = req.body;
-        const section = await ClassSection.findByIdAndUpdate(
-            sectionId, 
-            { teacher: teacherId }, 
-            { new: true }
-        ).populate('course teacher'); // Populate to verify change
-        
-        res.status(200).json(section);
+        const { sectionId, courses } = req.body;
+
+        if (!sectionId || !Array.isArray(courses)) {
+            return res.status(400).json({ 
+                success: false, 
+                message: "Section ID and an array of courses are required." 
+            });
+        }
+
+        const updatedSection = await ClassSection.findByIdAndUpdate(
+            sectionId,
+            { courses },
+            { new: true, runValidators: true }
+        ).populate('courses.course courses.teacher students');
+
+        if (!updatedSection) {
+            return res.status(404).json({ success: false, message: "Class section not found." });
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: "Section course assignments updated successfully.",
+            data: updatedSection
+        });
     } catch (error) {
-        res.status(500).json({ error: "Assignment failed" });
+        console.error("Error assigning courses:", error);
+        return res.status(500).json({ success: false, message: "Internal server error." });
+    }
+};
+
+// Controller: Get All Class Sections
+export const getAllClassSections = async (req, res) => {
+    try {
+        const sections = await ClassSection.find({})
+            .populate({
+                path: 'courses.course',
+                select: 'courseName courseCode'
+            })
+            .populate({
+                path: 'courses.teacher',
+                select: 'fullName personalInfo.fullName personalInfo.department'
+            })
+            .populate('students'); // <--- This is what populates the students array
+
+        return res.status(200).json({
+            success: true,
+            data: sections,
+            message: "Class sections retrieved successfully"
+        });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+export const createClassSection = async (req, res) => {
+    try {
+        const { sectionName, gradeLevel, students } = req.body;
+
+        if (!sectionName || !gradeLevel) {
+            return res.status(400).json({
+                success: false,
+                message: "Section name and grade level are required."
+            });
+        }
+
+        const newSection = await ClassSection.create({
+            sectionName: sectionName.trim(),
+            gradeLevel,
+            students: students || [] // Array of student ObjectIds
+        });
+
+        return res.status(201).json({
+            success: true,
+            message: "Class section created successfully.",
+            data: newSection
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: error.message || "Internal server error."
+        });
     }
 };

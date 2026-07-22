@@ -14,8 +14,9 @@ import RegisterStudent from "@/components/admin/RegisterStudents";
 import EnrollCourse from "@/components/admin/EnrollCourse";
 import TeacherRegistry from "@/components/admin/GetAllTeachers";
 import ProfileSettings from "@/components/admin/adminSetting";
+import SectionManagementPage from "@/components/admin/SectionManagement";
 
-type AdminTab = "analytics" | "students"| "teachers" | "courses" | "register";
+type AdminTab = "analytics" | "students" | "teachers" | "courses" | "register" | "sections" | "settings";
 
 export default function AdminDashboardPortal(): React.JSX.Element {
     const [activeTab, setActiveTab] = useState<AdminTab>("analytics");
@@ -28,7 +29,7 @@ export default function AdminDashboardPortal(): React.JSX.Element {
 
     const [teacherTarget, setTeacherTarget] = useState<UXTeacherRecord | null>(null);
 
-// State for viewing a specific department or profile associated with a teacher
+    // State for viewing a specific department or profile associated with a teacher
     const [activeDrawerDepartment, setActiveDrawerDepartment] = useState<UXDepartmentProfile | null>(null);
 
     const syncRosterContext = async () => {
@@ -54,15 +55,14 @@ export default function AdminDashboardPortal(): React.JSX.Element {
     }
 
     return (
-        <AdminNav activeDashboardTab={activeTab} onTabChange={(tab:AdminTab) => setActiveTab(tab)}>
+        <AdminNav activeDashboardTab={activeTab} onTabChange={(tab: AdminTab) => setActiveTab(tab)}>
             
-            {/* The previous upper <header> layout wrapper has been stripped for a cleaner look */}
-
             {/* Dashboard Viewport Render Container */}
             <div className="flex-1 overflow-y-auto p-4 md:p-6 max-w-7xl w-full mx-auto space-y-6">
                 {activeTab === "analytics" && (
-                    <AdminAnalytics students={students} courses={courses} onNavigateToTab={(tab) => setActiveTab(tab)} />
+                    <AdminAnalytics students={students} courses={courses} onNavigateToTab={(tab) => setActiveTab(tab as AdminTab)} />
                 )}
+                
                 {activeTab === "students" && (
                     <GetAllStudents students={students} onEnrollClick={setEnrollmentTarget} onViewParent={setActiveDrawerParent} />
                 )}
@@ -74,18 +74,20 @@ export default function AdminDashboardPortal(): React.JSX.Element {
                     />
                 )}
 
-                {activeTab === "settings" && (
-                    <ProfileSettings />
-                )}
-                
-                 
-                 
-                                
                 {activeTab === "courses" && (
                     <GetSystemCourses courses={courses} />
                 )}
+
+                {activeTab === "sections" && (
+                    <SectionManagementPage />
+                )}
+
                 {activeTab === "register" && (
                     <RegisterStudent onSuccess={() => { syncRosterContext(); setActiveTab("students"); }} />
+                )}
+
+                {activeTab === "settings" && (
+                    <ProfileSettings />
                 )}
             </div>
 

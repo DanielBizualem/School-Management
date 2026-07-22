@@ -1,9 +1,15 @@
 'use client';
 
 import React, { useEffect, useState } from "react";
-import { User, BookOpen, Calendar, Mail, MapPin } from "lucide-react";
+import { User, BookOpen, Calendar, Mail, MapPin, Layers } from "lucide-react";
 import Axios from "@/utils/Axios";
 import summeryApi from "@/common/summeryApi";
+
+interface SectionRecord {
+    _id: string;
+    sectionName: string;
+    gradeLevel: string;
+}
 
 interface StudentProfileData {
     fullName: string;
@@ -12,7 +18,7 @@ interface StudentProfileData {
     gender: string;
     studentDob: string;
     studentPhoto?: string;
-    // Add other fields from your DB as needed
+    enrolledSections?: SectionRecord[];
 }
 
 export default function StudentProfile() {
@@ -23,7 +29,6 @@ export default function StudentProfile() {
         try {
             setLoading(true);
             const response = await Axios({ ...summeryApi.getUserDetail });
-            // Based on your previous logic, response.data.data is the profile object
             setStudentDetail(response.data.data);
         } catch (error) {
             console.error("Failed to fetch student details", error);
@@ -58,6 +63,10 @@ export default function StudentProfile() {
     if (loading) return <div className="p-10 text-center text-slate-400 animate-pulse">Loading profile...</div>;
     if (!studentDetail) return <div className="p-10 text-center text-slate-400">No profile data available.</div>;
 
+    const assignedSectionText = studentDetail.enrolledSections && studentDetail.enrolledSections.length > 0
+        ? studentDetail.enrolledSections.map(sec => sec.sectionName).join(", ")
+        : "Not Assigned";
+
     return (
         <div className="w-full bg-slate-50 border border-slate-200 rounded-xl overflow-hidden shadow-sm font-sans">
             {/* Header */}
@@ -74,12 +83,13 @@ export default function StudentProfile() {
                     <ProfileRow label="Gender" value={studentDetail.gender} />
                     <ProfileRow 
                         label="Date of Birth" 
-                        value={new Date(studentDetail.studentDob).toLocaleDateString()} 
+                        value={studentDetail.studentDob ? new Date(studentDetail.studentDob).toLocaleDateString() : undefined} 
                     />
                 </SectionCard>
 
                 <SectionCard icon={<BookOpen size={16} />} title="Academic Details">
                     <ProfileRow label="Grade Level" value={studentDetail.gradeLevel} />
+                    <ProfileRow label="Assigned Section" value={assignedSectionText} />
                 </SectionCard>
             </div>
         </div>

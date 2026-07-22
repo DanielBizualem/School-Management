@@ -59,6 +59,30 @@ export const summeryApi = {
     getTranscript:{
         url: "/api/student/transcript",
         method: "GET"
+    },
+    getTeacherCourses: {
+        url: `/api/teacher/courses`,
+        method: "GET"
+    },
+    getStudentsByCourse: {
+        url: `/api/teacher/courseStudent`,
+        method: "GET"
+    },
+    updateStudentGrades: {
+        url: `/api/teacher/updateGrade`,
+        method: "POST"
+    },
+    assignTeacher:{
+        url: '/api/admin/assignTeacher',
+        method: "POST"
+    },
+    getAllClassSection:{
+        url: '/api/admin/getAllClassSection',
+        method: "GET"
+    },
+    createClassSection:{
+        url: 'api/admin/createClassSection',
+        method: "POST"
     }
 };
 

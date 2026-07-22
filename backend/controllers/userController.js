@@ -2,6 +2,7 @@ import { getUserDetails, updateUserData, updateUserPassword } from "../services/
 import { StaffProfile } from "../models/StaffProfile.js";
 import { StudentProfile } from "../models/StudentProfile.js";
 //import AdminProfile from "../models/AdminProfile.js";
+import {ClassSection} from '../models/classSection.js'
 
 
 
@@ -47,7 +48,16 @@ export const getUserDetail = async (req, res) => {
         } else if (role === 'teacher' || role === 'director') {
             profile = await StaffProfile.findOne({ user: userId });
         } else if (role === 'student' || role === 'director') {
-            profile = await StudentProfile.findOne({ user: userId });}
+            profile = await StudentProfile.findOne({ user: userId });
+            if (profile) {
+                // Find the class section where this student's ID is included in the students array
+                const assignedSection = await ClassSection.findOne({ students: profile._id })
+                    .select('sectionName gradeLevel academicYear');
+                
+                // Attach it to the response data structure expected by your frontend
+                profile.enrolledSections = assignedSection ? [assignedSection] : [];
+            }
+        }
         else {
             return res.status(403).json({ message: "Role profile not found." });
         }
