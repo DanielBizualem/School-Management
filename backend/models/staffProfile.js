@@ -42,7 +42,8 @@ const staffProfileSchema = new mongoose.Schema({
         default: 'Current'
       },
 
-    assignedCourses: [{ type: mongoose.Schema.Types.ObjectId, ref: "Course" }]
+    assignedCourses: [{ type: mongoose.Schema.Types.ObjectId, ref: "Course" }],
+    assignedSections: [{ type: mongoose.Schema.Types.ObjectId, ref: 'ClassSection' }]
 }, { timestamps: true });
 
 export const StaffProfile = mongoose.models.StaffProfile || mongoose.model("StaffProfile", staffProfileSchema);

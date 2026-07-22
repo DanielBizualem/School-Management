@@ -12,6 +12,7 @@ import crypto from 'crypto';
 import { getAdminDetail } from "../services/adminService.js";
 import {SchoolSetting} from "../models/SchoolSetting.js";
 import { ClassSection } from "../models/classSection.js";
+import { StaffProfile } from "../models/staffProfile.js";
 
 export const registerStudent = async (req, res) => {
     const session = await mongoose.startSession();
@@ -269,6 +270,7 @@ export const assignTeacherToSection = async (req, res) => {
             });
         }
 
+        // Update ClassSection document
         const updatedSection = await ClassSection.findByIdAndUpdate(
             sectionId,
             { courses },
@@ -279,9 +281,30 @@ export const assignTeacherToSection = async (req, res) => {
             return res.status(404).json({ success: false, message: "Class section not found." });
         }
 
+        // Sync assignments to each TeacherProfile document
+        const teacherUpdatePromises = courses.map(async (item) => {
+            if (item.teacher && item.course) {
+                const teacherId = typeof item.teacher === 'object' ? item.teacher._id : item.teacher;
+                const courseId = typeof item.course === 'object' ? item.course._id : item.course;
+
+                // Update TeacherProfile using $addToSet to avoid duplicates
+                await StaffProfile.findByIdAndUpdate(
+                    teacherId,
+                    {
+                        $addToSet: { 
+                            assignedCourses: courseId,
+                            assignedSections: sectionId 
+                        }
+                    }
+                );
+            }
+        });
+
+        await Promise.all(teacherUpdatePromises);
+
         return res.status(200).json({
             success: true,
-            message: "Section course assignments updated successfully.",
+            message: "Section course assignments updated successfully and synced to teacher profile.",
             data: updatedSection
         });
     } catch (error) {
@@ -316,7 +339,7 @@ export const getAllClassSections = async (req, res) => {
 
 export const createClassSection = async (req, res) => {
     try {
-        const { sectionName, gradeLevel, students } = req.body;
+        const { sectionName, gradeLevel, students, courses } = req.body;
 
         if (!sectionName || !gradeLevel) {
             return res.status(400).json({
@@ -328,12 +351,35 @@ export const createClassSection = async (req, res) => {
         const newSection = await ClassSection.create({
             sectionName: sectionName.trim(),
             gradeLevel,
-            students: students || [] // Array of student ObjectIds
+            students: students || [], 
+            courses: courses || []
         });
+
+        // If courses were provided during creation, sync them to teacher profiles
+        if (courses && Array.isArray(courses) && courses.length > 0) {
+            const teacherUpdatePromises = courses.map(async (item) => {
+                if (item.teacher && item.course) {
+                    const teacherId = typeof item.teacher === 'object' ? item.teacher._id : item.teacher;
+                    const courseId = typeof item.course === 'object' ? item.course._id : item.course;
+
+                    await StaffProfile.findByIdAndUpdate(
+                        teacherId,
+                        {
+                            $addToSet: { 
+                                assignedCourses: courseId,
+                                assignedSections: newSection._id 
+                            }
+                        }
+                    );
+                }
+            });
+
+            await Promise.all(teacherUpdatePromises);
+        }
 
         return res.status(201).json({
             success: true,
-            message: "Class section created successfully.",
+            message: "Class section created successfully and synced to teachers.",
             data: newSection
         });
     } catch (error) {

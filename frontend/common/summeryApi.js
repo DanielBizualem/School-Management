@@ -81,8 +81,24 @@ export const summeryApi = {
         method: "GET"
     },
     createClassSection:{
-        url: 'api/admin/createClassSection',
+        url: '/api/admin/createClassSection',
         method: "POST"
+    },
+    updateStudentGrade:{
+        url: '/api/teacher/updateGrade',
+        method: 'POST'
+    },
+    saveMaxScore:{
+        url: '/api/teacher/maxScore',
+        method: 'POST'
+    },
+    viewScore:{
+        url: '/api/student/viewScore',
+        method: 'GET'
+    },
+    getTeacherAssigned:{
+        url:'/api/teacher/teacherDetail',
+        method: 'GET'
     }
 };
 

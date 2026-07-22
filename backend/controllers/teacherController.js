@@ -1,6 +1,7 @@
 import { submitStudentMark, getAIStudentEvaluation, registerTeacher} from "../services/teacherService.js";
 import * as teacherService from "../services/teacherService.js";
 import { StaffProfile } from "../models/staffProfile.js";
+import {CourseGradeConfig} from '../models/CourseGradeConfig.js'
 
 export const updateStudentGrade = async (req, res) => {
     const { studentId, courseId, mark } = req.body;
@@ -155,12 +156,13 @@ export const updateTeacher = async (req, res) => {
 
 export const getTeacherDetails = async (req, res) => {
     try {
-        
-        const  userId  = req.user.id; 
+        const userId = req.user.id; 
 
-        // Query the StaffProfile model, not the User model
-        // We look for the document where the 'user' field matches the ID
-        const profile = await StaffProfile.findOne({ user: userId }).populate('user');
+        // Query the StaffProfile/TeacherProfile model and populate assigned courses and sections
+        const profile = await StaffProfile.findOne({ user: userId })
+            .populate('user')
+            .populate('assignedCourses')    // Populates course documents (e.g. courseName, code)
+            .populate('assignedSections');  // Populates class section documents (e.g. sectionName, gradeLevel)
 
         if (!profile) {
             return res.status(404).json({ success: false, message: "Profile not found for this user." });
@@ -169,5 +171,64 @@ export const getTeacherDetails = async (req, res) => {
         res.json({ success: true, data: profile });
     } catch (error) {
         res.status(500).json({ message: "Error fetching details", error: error.message });
+    }
+};
+
+export const saveSectionMaxScores = async (req, res) => {
+    try {
+        const { courseId, sectionId, semester, assessments } = req.body;
+
+        let gradeConfig = await CourseGradeConfig.findOne({ course: courseId, section: sectionId, semester });
+
+        if (gradeConfig) {
+            gradeConfig.assessments = assessments; // Updates max scores / titles
+            await gradeConfig.save();
+        } else {
+            gradeConfig = await CourseGradeConfig.create({
+                course: courseId,
+                section: sectionId,
+                semester,
+                assessments,
+                studentScores: []
+            });
+        }
+
+        return res.status(200).json({ success: true, message: "Max scores saved successfully", data: gradeConfig });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: "Server error", error: error.message });
+    }
+};
+
+export const updateStudentGrades = async (req, res) => {
+    try {
+        const { studentId, courseId, sectionId, semester, assessments } = req.body;
+
+        let gradeConfig = await CourseGradeConfig.findOne({ course: courseId, section: sectionId, semester });
+        if (!gradeConfig) {
+            return res.status(404).json({ success: false, message: "Please save section max scores first." });
+        }
+
+        // Format incoming scores array
+        const formattedScores = assessments.map(a => ({
+            assessmentTitle: a.title,
+            score: a.score
+        }));
+
+        // Find if student entry already exists
+        const studentIndex = gradeConfig.studentScores.findIndex(s => s.student.toString() === studentId);
+
+        if (studentIndex > -1) {
+            gradeConfig.studentScores[studentIndex].scores = formattedScores;
+        } else {
+            gradeConfig.studentScores.push({
+                student: studentId,
+                scores: formattedScores
+            });
+        }
+
+        await gradeConfig.save();
+        return res.status(200).json({ success: true, message: "Student grades successfully updated!" });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: "Server error", error: error.message });
     }
 };

@@ -32,34 +32,48 @@ export default function TeacherGradesPage() {
         { title: "Midterm Examination", maxScore: 30, score: 0 }
     ]);
 
-    // 1. Fetch courses and sections automatically from profile
+    // 1. Fetch teacher's assigned courses and assigned sections using getTeacherAssigned API
     useEffect(() => {
-        const fetchTeacherProfileAndData = async () => {
+        const fetchTeacherAssignments = async () => {
             try {
                 setLoading(true);
-                const res = await Axios({ ...summeryApi.getTeacherCourses }); 
-                const courseList = res.data?.data || res.data || [];
+                
+                const profileRes = await Axios({ ...summeryApi.getTeacherAssigned });
+                const teacherProfile = profileRes.data?.data || profileRes.data;
+
+                const courseList = teacherProfile?.assignedCourses || [];
+                const sectionList = teacherProfile?.assignedSections || [];
+
                 setCourses(courseList);
+                setSections(sectionList);
 
                 if (courseList.length > 0) {
-                    const firstCourseId = courseList[0]._id || courseList[0];
-                    setSelectedCourseId(typeof firstCourseId === 'string' ? firstCourseId : firstCourseId._id);
+                    const firstCourse = courseList[0];
+                    const firstCourseId = typeof firstCourse === 'object' && firstCourse !== null 
+                        ? (firstCourse._id || firstCourse.id || firstCourse.course?._id) 
+                        : firstCourse;
+                    setSelectedCourseId(firstCourseId || "");
                 }
 
-                const sectionsRes = await Axios({ ...summeryApi.getAllClassSection });
-                const sectionList = sectionsRes.data?.data || sectionsRes.data || [];
-                setSections(sectionList);
+                if (sectionList.length > 0) {
+                    const firstSection = sectionList[0];
+                    const firstSectionId = typeof firstSection === 'object' && firstSection !== null 
+                        ? (firstSection._id || firstSection.id || firstSection.section?._id) 
+                        : firstSection;
+                    setSelectedSectionId(firstSectionId || "");
+                }
+
             } catch (error) {
-                console.error("Failed to load teacher profile data", error);
+                console.error("Failed to load teacher assignments", error);
             } finally {
                 setLoading(false);
             }
         };
 
-        fetchTeacherProfileAndData();
+        fetchTeacherAssignments();
     }, []);
 
-    // 2. Fetch students enrolled in the selected section
+    // 2. Fetch students enrolled in the selected section & course context
     useEffect(() => {
         if (!selectedSectionId) {
             setStudents([]);
@@ -67,22 +81,36 @@ export default function TeacherGradesPage() {
             return;
         }
 
+        // If your populated section object already contains students, extract them directly
+        const currentSection = sections.find((sec: any) => {
+            const sId = typeof sec === 'object' && sec !== null ? (sec._id || sec.id || sec.section?._id) : sec;
+            return String(sId) === String(selectedSectionId);
+        });
+
+        if (currentSection && currentSection.students && currentSection.students.length > 0) {
+            setStudents(currentSection.students);
+            setSelectedStudentId("");
+            return;
+        }
+
+        // Otherwise, fetch from API endpoint if not embedded directly in the profile section model
         const fetchSectionStudents = async () => {
             try {
                 const res = await Axios({ 
                     ...summeryApi.getStudentsByCourse, 
                     url: `${summeryApi.getStudentsByCourse.url}/${selectedSectionId}` 
                 });
-                const studentList = res.data?.data || res.data || [];
+                const studentList = res.data?.data || res.data?.students || res.data || [];
                 setStudents(studentList);
-                setSelectedStudentId(""); // Reset student selection when section changes
+                setSelectedStudentId(""); 
             } catch (error) {
                 console.error("Failed to load section students", error);
+                setStudents([]);
             }
         };
 
         fetchSectionStudents();
-    }, [selectedSectionId]);
+    }, [selectedSectionId, sections]);
 
     // Add a new assessment row dynamically
     const handleAddAssessmentRow = () => {
@@ -102,10 +130,10 @@ export default function TeacherGradesPage() {
         setAssessments(updated);
     };
 
-    // Step 2: Save Max Scores for the Section
+    // Step 2: Save Max Scores for the Selected Grade & Section Context
     const handleSaveMaxScores = async () => {
         if (!selectedSectionId || !selectedCourseId) {
-            alert("Please select a section first.");
+            alert("Please select both an assigned course and section first.");
             return;
         }
 
@@ -118,13 +146,12 @@ export default function TeacherGradesPage() {
                 assessments: assessments.map(a => ({ title: a.title, maxScore: a.maxScore }))
             };
 
-            // Use your appropriate endpoint to save section max scores if separate, or pass along
             await Axios({
-                ...summeryApi.updateStudentGrades, // Adjust endpoint if you have a specific route for max scores configuration
+                ...summeryApi.saveMaxScore,
                 data: payload
             });
 
-            alert("Assessment maximum scores saved successfully for this section!");
+            alert("Assessment maximum scores successfully configured for this grade and section!");
         } catch (error) {
             console.error("Failed to save max scores", error);
             alert("Error saving max scores. Please try again.");
@@ -152,7 +179,7 @@ export default function TeacherGradesPage() {
             };
 
             await Axios({
-                ...summeryApi.updateStudentGrades,
+                ...summeryApi.updateStudentGrade,
                 data: payload
             });
 
@@ -199,29 +226,73 @@ export default function TeacherGradesPage() {
 
             {/* Selection Controls Form container */}
             <div className="bg-white p-6 rounded-2xl border border-slate-200/60 shadow-sm space-y-6">
-                {/* 1. Side-by-side Select Section and Select Student Dropdowns */}
+                
+                {/* 1. Assigned Course Selector Dropdown */}
+                <div>
+                    <label className="block text-[10px] font-bold text-slate-600 uppercase mb-2">Assigned Course</label>
+                    <select 
+                        value={selectedCourseId} 
+                        onChange={(e) => setSelectedCourseId(e.target.value)}
+                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 outline-none focus:border-slate-400 transition"
+                    >
+                        <option value="">Select Assigned Course</option>
+                        {courses.map((course: any, index: number) => {
+                            const cId = typeof course === 'object' && course !== null 
+                                ? (course._id || course.id || course.course?._id) 
+                                : course;
+                            
+                            const uniqueKey = cId ? String(cId) : `course-${index}`;
+                            const cName = typeof course === 'object' && course !== null 
+                                ? (course.courseName || course.name || course.title || course.course?.courseName || course.course?.name || `Course ${String(cId || index).slice(-4)}`) 
+                                : `Course ${String(course)}`;
+
+                            return (
+                                <option key={uniqueKey} value={cId || ''}>
+                                    {cName}
+                                </option>
+                            );
+                        })}
+                    </select>
+                </div>
+
+                {/* 2. Side-by-side Assigned Sections & Students Dropdowns */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {/* Section Selector */}
                     <div>
-                        <label className="block text-[10px] font-bold text-slate-600 uppercase mb-2">Select Section</label>
+                        <label className="block text-[10px] font-bold text-slate-600 uppercase mb-2">Assigned Section & Grade</label>
                         <select 
                             value={selectedSectionId} 
                             onChange={(e) => {
                                 setSelectedSectionId(e.target.value);
-                                setSelectedStudentId(""); // Reset student on section change
+                                setSelectedStudentId(""); 
                             }}
                             className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 outline-none focus:border-slate-400 transition"
                         >
-                            <option value="">-- Select Section --</option>
-                            {sections.map((section: any) => (
-                                <option key={section._id} value={section._id}>
-                                    {section.sectionName || section.name || `Section ${section._id.slice(-4)}`}
-                                </option>
-                            ))}
+                            <option value="">Select Assigned Section</option>
+                            {sections.map((section: any, index: number) => {
+                                const sId = typeof section === 'object' && section !== null 
+                                    ? (section._id || section.id || section.section?._id) 
+                                    : section;
+                                    
+                                const uniqueKey = sId ? String(sId) : `section-${index}`;
+                                const gradeVal = typeof section === 'object' && section !== null 
+                                    ? (section.gradeLevel || section.section?.gradeLevel) 
+                                    : "";
+                                const gradeLabel = gradeVal ? `Grade ${gradeVal} - ` : "";
+                                const sectionName = typeof section === 'object' && section !== null 
+                                    ? (section.sectionName || section.name || section.section?.sectionName || section.section?.name || `Section ${String(sId || index).slice(-4)}`)
+                                    : `Section ${String(section)}`;
+
+                                return (
+                                    <option key={uniqueKey} value={sId || ''}>
+                                        {gradeLabel}{sectionName}
+                                    </option>
+                                );
+                            })}
                         </select>
                     </div>
 
-                    {/* Student Selector (Only available after section is selected) */}
+                    {/* Student Selector */}
                     <div>
                         <label className="block text-[10px] font-bold text-slate-600 uppercase mb-2">Select Student</label>
                         <select 
@@ -230,25 +301,32 @@ export default function TeacherGradesPage() {
                             disabled={!selectedSectionId}
                             className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 outline-none focus:border-slate-400 transition disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            <option value="">{selectedSectionId ? "-- Select Specific Student --" : "Select a section first"}</option>
-                            {students.map((student: any) => (
-                                <option key={student._id} value={student._id}>
-                                    {student.personalInfo?.fullName || student.fullName} ({student.studentID || student.employeeID || "ID N/A"})
-                                </option>
-                            ))}
+                            <option value="">{selectedSectionId ? "Select Specific Student" : "Select a section first"}</option>
+                            {students.map((student: any, index: number) => {
+                                const studentObj = student.user || student;
+                                const studentIdVal = studentObj._id || studentObj.id || student._id;
+                                
+                                const uniqueKey = studentIdVal ? String(studentIdVal) : `student-${index}`;
+                                const studentName = studentObj.personalInfo?.fullName || studentObj.fullName || student.fullName || "Student Name N/A";
+                                const studentNo = studentObj.studentID || studentObj.employeeID || student.studentID || "ID N/A";
+                                
+                                return (
+                                    <option key={uniqueKey} value={studentIdVal || ''}>
+                                        {studentName} ({studentNo})
+                                    </option>
+                                );
+                            })}
                         </select>
                     </div>
                 </div>
 
-                {/* 4. Mutually Exclusive Replacement Blocks (Never stacked together) */}
-                
-                {/* Condition A: Section is selected, but NO student is selected -> Show Assessment Components & Weights */}
+                {/* Condition A: Section/Grade is selected, but NO student is selected -> Show Max Scores Config */}
                 {selectedSectionId && !selectedStudentId && (
-                    <div className="space-y-4 pt-4 border-t border-slate-100 animate-fadeIn">
+                    <div className="space-y-4 pt-4 border-t border-slate-100">
                         <div className="flex justify-between items-center">
                             <div>
                                 <h3 className="text-sm font-bold text-slate-800">Assessment Components & Weights</h3>
-                                <p className="text-[10px] text-slate-400">Define titles and maximum point values for this section's course.</p>
+                                <p className="text-[10px] text-slate-400">Define maximum point limitations specifically for this selected grade and section.</p>
                             </div>
                             <button 
                                 type="button" 
@@ -261,7 +339,7 @@ export default function TeacherGradesPage() {
 
                         <div className="space-y-3">
                             {assessments.map((item, index) => (
-                                <div key={index} className="flex items-center gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200/60">
+                                <div key={`assessment-row-${index}`} className="flex items-center gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200/60">
                                     <input 
                                         type="text" 
                                         placeholder="Assessment Title (e.g. Quiz 2)" 
@@ -304,9 +382,9 @@ export default function TeacherGradesPage() {
                     </div>
                 )}
 
-                {/* Condition B: Student is selected from drop-down -> Replace with Enter Marks for Selected Student */}
+                {/* Condition B: Student is selected -> Input Individual Marks */}
                 {selectedStudentId && (
-                    <form onSubmit={handleSubmitStudentScores} className="space-y-4 pt-4 border-t border-slate-100 animate-fadeIn">
+                    <form onSubmit={handleSubmitStudentScores} className="space-y-4 pt-4 border-t border-slate-100">
                         <div>
                             <h3 className="text-sm font-bold text-slate-800">Enter Marks for Selected Student</h3>
                             <p className="text-[10px] text-slate-400">Provide individual scores for the chosen student against the established max limits.</p>
@@ -314,7 +392,7 @@ export default function TeacherGradesPage() {
 
                         <div className="space-y-3">
                             {assessments.map((item, index) => (
-                                <div key={`score-${index}`} className="flex items-center justify-between bg-slate-50 p-3 rounded-xl border border-slate-200/60">
+                                <div key={`score-row-${index}`} className="flex items-center justify-between bg-slate-50 p-3 rounded-xl border border-slate-200/60">
                                     <span className="text-xs font-bold text-slate-700">{item.title || `Assessment ${index + 1}`} (Max: {item.maxScore})</span>
                                     <div className="flex items-center gap-2">
                                         <span className="text-[10px] font-bold text-slate-400 uppercase">Score:</span>

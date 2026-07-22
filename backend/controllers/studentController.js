@@ -2,6 +2,7 @@ import { getStudentDashboard, createNewComplaint } from "../services/studentServ
 import { StudentProfile } from "../models/StudentProfile.js";
 import {Course} from '../models/Course.js'
 import {ClassSection} from '../models/classSection.js'
+import {StaffProfile} from '../models/staffProfile.js'
 
 export const viewMyDashboard = async (req, res) => {
     // Securely pull the user ID from the validated JWT token payload
@@ -101,25 +102,20 @@ export const getStudentTranscript = async (req, res) => {
 
 export const getTeacherCourses = async (req, res) => {
     try {
-        const teacherId = req.user.id;
+         //req.userId = req.user.id
+        // Assuming req.userId is available from your authentication middleware
+        const teacherProfile = await StaffProfile.findOne({ user: req.user.id })
+            .populate('assignedCourses');
 
-        // Find all sections taught by this teacher and populate their courses
-        const sections = await ClassSection.find({ teacher: teacherId }).populate("course");
-        
-        // Extract unique courses using a Map
-        const courseMap = new Map();
-        sections.forEach(section => {
-            if (section.course) {
-                courseMap.set(section.course._id.toString(), section.course);
-            }
-        });
+        if (!teacherProfile) {
+            return res.status(404).json({ success: false, message: "Teacher profile not found" });
+        }
 
         return res.status(200).json({
             success: true,
-            data: Array.from(courseMap.values())
+            data: teacherProfile.assignedCourses // Returns array of populated Course documents
         });
     } catch (error) {
-        console.error("Error fetching teacher courses:", error);
         return res.status(500).json({ success: false, message: error.message });
     }
 };
@@ -189,5 +185,37 @@ export const updateStudentGrades = async (req, res) => {
     } catch (error) {
         console.error("Error updating student grades:", error);
         return res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+export const getStudentDashboardGrades = async (req, res) => {
+    try {
+        const studentProfileId = req.user.studentProfileId; // Derived from student token session
+        const studentSectionId = req.user.sectionId; // Derived from student's active section
+
+        // Find all grade configurations matching the student's section
+        const configs = await CourseGradeConfig.find({ section: studentSectionId }).populate('course', 'courseName');
+
+        const processedGrades = configs.map(config => {
+            // Find specific student entry if graded
+            const studentRecord = config.studentScores.find(s => s.student.toString() === studentProfileId);
+
+            return {
+                courseName: config.course?.courseName,
+                semester: config.semester,
+                assessments: config.assessments.map(ass => {
+                    const matchedScore = studentRecord?.scores.find(s => s.assessmentTitle === ass.title);
+                    return {
+                        title: ass.title,
+                        maxScore: ass.maxScore,
+                        score: matchedScore ? matchedScore.score : null // Null if teacher hasn't entered student's mark yet
+                    };
+                })
+            };
+        });
+
+        return res.status(200).json({ success: true, data: processedGrades });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: "Server error", error: error.message });
     }
 };
