@@ -57,7 +57,7 @@ export default function StudentSidebar() {
     const navItems = [
         { label: "Profile", id: "profile", path: "/student/profile", icon: Users },
         { label: "Transcript", id: "analytics", path: "/student/transcript", icon: LayoutDashboard },
-        { label: "Academics", id: "marks", path: "/student/academics", icon: Users },
+        { label: "Assessment Result", id: "marks", path: "/student/academics", icon: Users },
         { label: "Settings", id: "settings", path: "/student/settings", icon: Settings2 }
     ];
     const handleLogout = () => {

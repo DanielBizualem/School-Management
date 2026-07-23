@@ -85,8 +85,8 @@ export const summeryApi = {
         method: "POST"
     },
     updateStudentGrade:{
-        url: '/api/teacher/updateGrade',
-        method: 'POST'
+        url: '/api/teacher/update-grade',
+        method: 'PATCH'
     },
     saveMaxScore:{
         url: '/api/teacher/maxScore',
@@ -98,6 +98,14 @@ export const summeryApi = {
     },
     getTeacherAssigned:{
         url:'/api/teacher/teacherDetail',
+        method: 'GET'
+    },
+    getMaxScore:{
+        url: '/api/teacher/getMaxScore',
+        method: 'GET'
+    },
+    getStudentScoresForTeacher:{
+        url: '/api/teacher/viewScore',
         method: 'GET'
     }
 };

@@ -5,35 +5,75 @@ import mongoose from "mongoose";
 import { User } from "../models/User.js";
 import bcrypt from "bcrypt";
 import crypto from "crypto";
+import {CourseGradeConfig} from "../models/CourseGradeConfig.js";
 
-export const submitStudentMark = async (teacherUserId, { studentId, courseId, mark }) => {
+export const submitStudentMark = async (teacherUserId, payload) => {
+    const { studentId, courseId, sectionId, semester, assessments } = payload;
+
     // 1. Authorization: Ensure this specific teacher teaches this course
     const teacherProfile = await StaffProfile.findOne({ user: teacherUserId });
     
-    // Using .toString() handles Mongoose ObjectIds safely when doing comparison checks
     if (!teacherProfile || !teacherProfile.assignedCourses.map(id => id.toString()).includes(courseId)) {
         throw new Error("UNAUTHORIZED_COURSE_ACCESS");
     }
 
-    // 2. Find the specific student being graded
+    // 2. Validate student exists
     const student = await StudentProfile.findById(studentId);
     if (!student) throw new Error("STUDENT_NOT_FOUND");
 
-    // 3. Find if the student already has a grade entry for this specific course
-    const gradeIndex = student.grades.findIndex(g => g.course.toString() === courseId);
+    // 3. Find the specific CourseGradeConfig document for this section & semester
+    let gradeConfig = await CourseGradeConfig.findOne({
+        course: courseId,
+        section: sectionId,
+        semester: semester || "semester1"
+    });
 
-    // FIXED BUG: Explicitly checking against -1 ensures index 0 updates correctly
-    if (gradeIndex > -1) {
-        // If entry exists, update the existing mark
-        student.grades[gradeIndex].mark = mark;
-    } else {
-        // If it's a first-time mark, push a new course-grade pair
-        student.grades.push({ course: courseId, mark });
+    if (!gradeConfig) {
+        throw new Error("COURSE_GRADE_CONFIG_NOT_FOUND");
     }
 
-    // 4. Save changes only for this specific student
-    await student.save();
-    return student;
+    // 4. Format incoming scores, validating them against the *actual* max scores defined in gradeConfig
+    const formattedScores = assessments.map(item => {
+        // Find the corresponding maxScore configuration for this assessment title
+        const matchedAssessmentConfig = gradeConfig.assessments.find(
+            a => a.title.toLowerCase().trim() === item.title.toLowerCase().trim()
+        );
+
+        const allowedMaxScore = matchedAssessmentConfig ? matchedAssessmentConfig.maxScore : 100;
+        let finalScore = Number(item.score) || 0;
+
+        // Optional safety: Prevent score from exceeding max score
+        if (finalScore > allowedMaxScore) {
+            finalScore = allowedMaxScore;
+        }
+
+        return {
+            assessmentTitle: item.title,
+            score: finalScore
+        };
+    });
+
+    // 5. Update or push the student's scores into the `studentScores` array
+    const studentScoreIndex = gradeConfig.studentScores.findIndex(
+        (s) => String(s.student) === String(studentId)
+    );
+
+    if (studentScoreIndex > -1) {
+        gradeConfig.studentScores[studentScoreIndex].scores = formattedScores;
+    } else {
+        gradeConfig.studentScores.push({
+            student: studentId,
+            scores: formattedScores
+        });
+    }
+
+    // 6. Save changes to the CourseGradeConfig document
+    await gradeConfig.save();
+
+    // Populate course details so the returned object is fully fleshed out
+    await gradeConfig.populate('course', 'courseName courseCode');
+
+    return gradeConfig;
 };
 
 export const getAIStudentEvaluation = async (studentId, courseId) => {

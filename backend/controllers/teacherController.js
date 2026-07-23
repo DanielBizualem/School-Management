@@ -4,44 +4,38 @@ import { StaffProfile } from "../models/staffProfile.js";
 import {CourseGradeConfig} from '../models/CourseGradeConfig.js'
 
 export const updateStudentGrade = async (req, res) => {
-    const { studentId, courseId, mark } = req.body;
+    const { studentId, courseId, sectionId, semester, assessments } = req.body;
     
     // req.user.id is automatically populated by your protect authentication middleware
     const teacherUserId = req.user.id; 
 
     try {
         // 1. Structural Request Validation
-        if (!studentId || !courseId || mark === undefined) {
+        if (!studentId || !courseId || !sectionId || !assessments || !Array.isArray(assessments)) {
             return res.status(400).json({ 
                 success: false,
-                message: "Missing parameters. studentId, courseId, and mark are all required." 
+                message: "Missing required parameters. studentId, courseId, sectionId, and assessments array are all required." 
             });
         }
 
-        // 2. Business Logic Validation (Ensure mark is realistic)
-        if (mark < 0 || mark > 100) {
-            return res.status(400).json({ 
-                success: false,
-                message: "Invalid mark value. Score must be a percentage between 0 and 180°C or 100%." 
-            });
-        }
-
-        // 3. Execute Service Operation
-        const updatedStudent = await submitStudentMark(teacherUserId, { 
+        // 2. Execute Service Operation (passing full payload to CourseGradeConfig)
+        const updatedConfig = await submitStudentMark(teacherUserId, { 
             studentId, 
             courseId, 
-            mark: Number(mark) // Enforce data type consistency as a number
+            sectionId,
+            semester: semester || "semester1",
+            assessments 
         });
 
-        // 4. Return Success Payload
+        // 3. Return Success Payload
         return res.status(200).json({
             success: true,
-            message: "Student mark processed and logged successfully.",
-            data: updatedStudent
+            message: "Student grades successfully updated.",
+            data: updatedConfig
         });
 
     } catch (error) {
-        // 5. Catch Security and Structural Exceptions Cleanly
+        // 4. Catch Security and Structural Exceptions Cleanly
         if (error.message === "UNAUTHORIZED_COURSE_ACCESS") {
             return res.status(403).json({
                 success: false,
@@ -53,6 +47,13 @@ export const updateStudentGrade = async (req, res) => {
             return res.status(404).json({
                 success: false,
                 message: "Operation Failed: No student record matches the provided studentId."
+            });
+        }
+
+        if (error.message === "COURSE_GRADE_CONFIG_NOT_FOUND") {
+            return res.status(404).json({
+                success: false,
+                message: "Operation Failed: No grading configuration found for this course and section."
             });
         }
 
@@ -230,5 +231,56 @@ export const updateStudentGrades = async (req, res) => {
         return res.status(200).json({ success: true, message: "Student grades successfully updated!" });
     } catch (error) {
         return res.status(500).json({ success: false, message: "Server error", error: error.message });
+    }
+};
+
+export const getStudentScoresForTeacher = async (req, res) => {
+    try {
+        const { courseId, sectionId, studentId } = req.params;
+        const { semester } = req.query;
+
+        // 1. Find the course grade configuration for this course & section
+        const query = { course: courseId, section: sectionId };
+        if (semester) query.semester = semester;
+
+        const gradeConfig = await CourseGradeConfig.findOne(query).populate('course', 'courseName courseCode');
+
+        if (!gradeConfig) {
+            return res.status(200).json({ 
+                success: true, 
+                data: { assessments: [] },
+                message: "No assessment configuration found for this course yet." 
+            });
+        }
+
+        // 2. Extract this specific student's scores from the studentScores array
+        const studentScoreEntry = gradeConfig.studentScores?.find(
+            (s) => String(s.student) === String(studentId) || String(s.student?._id) === String(studentId)
+        );
+
+        // 3. Map maxScores with individual student scores
+        const combinedAssessments = gradeConfig.assessments.map(assessment => {
+            const matchedScoreObj = studentScoreEntry?.scores?.find(
+                scoreItem => scoreItem.assessmentTitle === assessment.title
+            );
+            return {
+                _id: assessment._id,
+                title: assessment.title,
+                maxScore: assessment.maxScore,
+                score: matchedScoreObj ? matchedScoreObj.score : 0
+            };
+        });
+
+        return res.status(200).json({
+            success: true,
+            data: {
+                semester: gradeConfig.semester,
+                assessments: combinedAssessments
+            }
+        });
+
+    } catch (error) {
+        console.error("Error fetching student scores for teacher:", error);
+        return res.status(500).json({ success: false, message: "Internal server error" });
     }
 };

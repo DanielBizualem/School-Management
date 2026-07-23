@@ -26,11 +26,8 @@ export default function TeacherGradesPage() {
     const [selectedStudentId, setSelectedStudentId] = useState<string>("");
     const [activeSemester, setActiveSemester] = useState<"semester1" | "semester2">("semester1");
 
-    // Dynamic assessment rows
-    const [assessments, setAssessments] = useState<AssessmentInput[]>([
-        { title: "Quiz 1", maxScore: 10, score: 0 },
-        { title: "Midterm Examination", maxScore: 30, score: 0 }
-    ]);
+    // Dynamic assessment rows (defaults to empty until fetched or added)
+    const [assessments, setAssessments] = useState<AssessmentInput[]>([]);
 
     // 1. Fetch teacher's assigned courses and assigned sections using getTeacherAssigned API
     useEffect(() => {
@@ -52,7 +49,7 @@ export default function TeacherGradesPage() {
                     const firstCourseId = typeof firstCourse === 'object' && firstCourse !== null 
                         ? (firstCourse._id || firstCourse.id || firstCourse.course?._id) 
                         : firstCourse;
-                    setSelectedCourseId(firstCourseId || "");
+                    setSelectedCourseId(firstCourseId ? String(firstCourseId) : "");
                 }
 
                 if (sectionList.length > 0) {
@@ -60,7 +57,7 @@ export default function TeacherGradesPage() {
                     const firstSectionId = typeof firstSection === 'object' && firstSection !== null 
                         ? (firstSection._id || firstSection.id || firstSection.section?._id) 
                         : firstSection;
-                    setSelectedSectionId(firstSectionId || "");
+                    setSelectedSectionId(firstSectionId ? String(firstSectionId) : "");
                 }
 
             } catch (error) {
@@ -73,7 +70,52 @@ export default function TeacherGradesPage() {
         fetchTeacherAssignments();
     }, []);
 
-    // 2. Fetch students enrolled in the selected section & course context
+    // 2. Fetch existing max scores/assessments configuration for the selected Course, Section, and Semester
+    useEffect(() => {
+        const fetchExistingMaxScores = async () => {
+            if (!selectedCourseId || !selectedSectionId) {
+                setAssessments([]);
+                return;
+            }
+
+            try {
+                const api = summeryApi as any;
+                const apiConfig = api.getMaxScore;
+
+                const baseUrl = typeof apiConfig === 'function' 
+                    ? apiConfig(selectedCourseId, selectedSectionId, activeSemester).url 
+                    : (apiConfig?.url || apiConfig);
+
+                const res = await Axios({
+                    ...(typeof apiConfig === 'object' ? apiConfig : { method: 'GET' }),
+                    url: `${baseUrl}/${selectedCourseId}/${selectedSectionId}/${activeSemester}`
+                });
+
+                const fetchedData = res.data?.data?.assessments || res.data?.assessments || res.data;
+
+                if (Array.isArray(fetchedData) && fetchedData.length > 0) {
+                    setAssessments(fetchedData.map((item: any) => ({
+                        title: item.title || "",
+                        maxScore: Number(item.maxScore) || 0,
+                        score: 0
+                    })));
+                } else {
+                    setAssessments([
+                        { title: "Quiz 1", maxScore: 10, score: 0 }
+                    ]);
+                }
+            } catch (error) {
+                console.error("No pre-configured max scores found or failed to fetch", error);
+                setAssessments([
+                    { title: "Quiz 1", maxScore: 10, score: 0 }
+                ]);
+            }
+        };
+
+        fetchExistingMaxScores();
+    }, [selectedCourseId, selectedSectionId, activeSemester]);
+
+    // 3. Fetch students enrolled in the selected section & course context
     useEffect(() => {
         if (!selectedSectionId) {
             setStudents([]);
@@ -81,7 +123,6 @@ export default function TeacherGradesPage() {
             return;
         }
 
-        // If your populated section object already contains students, extract them directly
         const currentSection = sections.find((sec: any) => {
             const sId = typeof sec === 'object' && sec !== null ? (sec._id || sec.id || sec.section?._id) : sec;
             return String(sId) === String(selectedSectionId);
@@ -93,12 +134,14 @@ export default function TeacherGradesPage() {
             return;
         }
 
-        // Otherwise, fetch from API endpoint if not embedded directly in the profile section model
         const fetchSectionStudents = async () => {
             try {
+                const studentApi = summeryApi.getStudentsByCourse;
+                const baseStudentUrl = typeof studentApi === 'object' ? studentApi.url : studentApi;
+
                 const res = await Axios({ 
-                    ...summeryApi.getStudentsByCourse, 
-                    url: `${summeryApi.getStudentsByCourse.url}/${selectedSectionId}` 
+                    ...(typeof studentApi === 'object' ? studentApi : { method: 'GET' }),
+                    url: `${baseStudentUrl}/${selectedSectionId}` 
                 });
                 const studentList = res.data?.data || res.data?.students || res.data || [];
                 setStudents(studentList);
@@ -112,6 +155,45 @@ export default function TeacherGradesPage() {
         fetchSectionStudents();
     }, [selectedSectionId, sections]);
 
+    // 4. Fetch existing scores when a specific student is selected
+    useEffect(() => {
+        if (!selectedStudentId || !selectedCourseId || !selectedSectionId) return;
+
+        const fetchStudentExistingScores = async () => {
+            try {
+                const api = summeryApi as any;
+                const getScoreApi = api.getStudentScoresForTeacher || api.viewScore;
+                const baseUrl = typeof getScoreApi === 'function' 
+                    ? getScoreApi(selectedCourseId, selectedSectionId, selectedStudentId).url 
+                    : (getScoreApi?.url || getScoreApi || '/api/teacher/viewScore');
+
+                const res = await Axios({
+                    ...(typeof getScoreApi === 'object' ? getScoreApi : { method: 'GET' }),
+                    url: `${baseUrl}/${selectedCourseId}/${selectedSectionId}/${selectedStudentId}`,
+                    params: { semester: activeSemester }
+                });
+
+                const responseData = res.data?.data || res.data;
+                const savedAssessments = responseData?.assessments || [];
+
+                if (savedAssessments.length > 0) {
+                    // Update assessments with the exact maxScore and score from the backend configuration
+                    setAssessments(savedAssessments.map((item: any) => ({
+                        title: item.title || "",
+                        maxScore: Number(item.maxScore) || 10, // Pulls the true maxScore (e.g. 50 for Final Exam)
+                        score: item.score !== undefined ? Number(item.score) : 0
+                    })));
+                } else {
+                    setAssessments(prev => prev.map(item => ({ ...item, score: 0 })));
+                }
+            } catch (error) {
+                console.log("No prior scores found for this student yet, defaulting to 0.");
+                setAssessments(prev => prev.map(item => ({ ...item, score: 0 })));
+            }
+        };
+
+        fetchStudentExistingScores();
+    }, [selectedStudentId, selectedCourseId, selectedSectionId, activeSemester]);
     // Add a new assessment row dynamically
     const handleAddAssessmentRow = () => {
         setAssessments([...assessments, { title: "", maxScore: 10, score: 0 }]);
@@ -130,7 +212,7 @@ export default function TeacherGradesPage() {
         setAssessments(updated);
     };
 
-    // Step 2: Save Max Scores for the Selected Grade & Section Context
+    // Save Max Scores for the Selected Grade & Section Context
     const handleSaveMaxScores = async () => {
         if (!selectedSectionId || !selectedCourseId) {
             alert("Please select both an assigned course and section first.");
@@ -160,7 +242,7 @@ export default function TeacherGradesPage() {
         }
     };
 
-    // Step 3: Submit Student Scores
+    // Submit Student Scores
     const handleSubmitStudentScores = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!selectedStudentId || !selectedSectionId || !selectedCourseId) {
@@ -175,11 +257,16 @@ export default function TeacherGradesPage() {
                 courseId: selectedCourseId,
                 sectionId: selectedSectionId,
                 semester: activeSemester,
-                assessments: assessments
+                assessments: assessments.map(item => ({
+                    title: item.title,
+                    score: Number(item.score) || 0
+                }))
             };
 
+            const apiConfig = (summeryApi as any).updateStudentGrade;
+
             await Axios({
-                ...summeryApi.updateStudentGrade,
+                ...apiConfig,
                 data: payload
             });
 
@@ -247,7 +334,7 @@ export default function TeacherGradesPage() {
                                 : `Course ${String(course)}`;
 
                             return (
-                                <option key={uniqueKey} value={cId || ''}>
+                                <option key={uniqueKey} value={cId ? String(cId) : ''}>
                                     {cName}
                                 </option>
                             );
@@ -284,7 +371,7 @@ export default function TeacherGradesPage() {
                                     : `Section ${String(section)}`;
 
                                 return (
-                                    <option key={uniqueKey} value={sId || ''}>
+                                    <option key={uniqueKey} value={sId ? String(sId) : ''}>
                                         {gradeLabel}{sectionName}
                                     </option>
                                 );
@@ -296,22 +383,38 @@ export default function TeacherGradesPage() {
                     <div>
                         <label className="block text-[10px] font-bold text-slate-600 uppercase mb-2">Select Student</label>
                         <select 
-                            value={selectedStudentId} 
+                            value={selectedStudentId ? String(selectedStudentId) : ""} 
                             onChange={(e) => setSelectedStudentId(e.target.value)}
                             disabled={!selectedSectionId}
                             className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 outline-none focus:border-slate-400 transition disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             <option value="">{selectedSectionId ? "Select Specific Student" : "Select a section first"}</option>
                             {students.map((student: any, index: number) => {
-                                const studentObj = student.user || student;
-                                const studentIdVal = studentObj._id || studentObj.id || student._id;
+                                const isObject = typeof student === 'object' && student !== null;
+                                const studentObj = isObject ? (student.user || student) : {};
                                 
-                                const uniqueKey = studentIdVal ? String(studentIdVal) : `student-${index}`;
-                                const studentName = studentObj.personalInfo?.fullName || studentObj.fullName || student.fullName || "Student Name N/A";
-                                const studentNo = studentObj.studentID || studentObj.employeeID || student.studentID || "ID N/A";
+                                const rawId = isObject ? (studentObj._id || studentObj.id || student._id) : student;
+                                const studentIdVal = rawId ? String(rawId) : "";
+                                
+                                const uniqueKey = studentIdVal ? studentIdVal : `student-${index}`;
+                                
+                                const studentName = 
+                                    studentObj.personalInfo?.fullName || 
+                                    studentObj.fullName || 
+                                    student.fullName || 
+                                    studentObj.name || 
+                                    student.name || 
+                                    `Student ${index + 1}`;
+
+                                const studentNo = 
+                                    studentObj.studentID || 
+                                    student.studentID || 
+                                    studentObj.employeeID || 
+                                    student.employeeID || 
+                                    (studentIdVal ? studentIdVal.slice(-4) : "ID N/A");
                                 
                                 return (
-                                    <option key={uniqueKey} value={studentIdVal || ''}>
+                                    <option key={uniqueKey} value={studentIdVal}>
                                         {studentName} ({studentNo})
                                     </option>
                                 );

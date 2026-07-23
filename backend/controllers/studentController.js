@@ -3,6 +3,8 @@ import { StudentProfile } from "../models/StudentProfile.js";
 import {Course} from '../models/Course.js'
 import {ClassSection} from '../models/classSection.js'
 import {StaffProfile} from '../models/staffProfile.js'
+import {CourseGradeConfig} from '../models/CourseGradeConfig.js'
+import mongoose from "mongoose";
 
 export const viewMyDashboard = async (req, res) => {
     // Securely pull the user ID from the validated JWT token payload
@@ -219,3 +221,152 @@ export const getStudentDashboardGrades = async (req, res) => {
         return res.status(500).json({ success: false, message: "Server error", error: error.message });
     }
 };
+
+export const getStudentCoursePerformance = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { courseId } = req.params;
+        const { semester } = req.query;
+
+        // 1. Find the student profile
+        const studentProfile = await StudentProfile.findOne({ user: userId });
+        if (!studentProfile) {
+            return res.status(404).json({ success: false, message: "Student profile not found" });
+        }
+
+        const studentId = studentProfile._id;
+        
+        // 2. Find the ClassSection where this student's ID is included in the `students` array
+        const ClassSection = mongoose.model('ClassSection');
+        const studentSection = await ClassSection.findOne({ students: studentId });
+
+        if (!studentSection) {
+            return res.status(200).json({ 
+                success: true, 
+                data: {
+                    course: null,
+                    semester: semester || "semester1",
+                    teacherName: "TBA",
+                    assessments: []
+                },
+                message: "Student is not assigned to any class section yet." 
+            });
+        }
+
+        const studentSectionId = studentSection._id;
+
+        // 3. Find the course grade configuration for this course & section
+        const query = { course: courseId, section: studentSectionId };
+        if (semester) query.semester = semester;
+
+        const gradeConfig = await CourseGradeConfig.findOne(query).populate('course', 'courseName courseCode');
+
+        // Return 200 with empty assessments so the UI loads cleanly without 404 errors
+        if (!gradeConfig) {
+            return res.status(200).json({ 
+                success: true, 
+                data: {
+                    course: null,
+                    semester: semester || "semester1",
+                    teacherName: "TBA",
+                    assessments: []
+                },
+                message: "No assessment configuration found for this course yet." 
+            });
+        }
+
+        // 4. Find the teacher ID linked to this specific course inside the ClassSection's courses array
+        const courseEntry = studentSection.courses?.find(
+            (c) => String(c.course) === String(courseId) || String(c.course?._id) === String(courseId)
+        );
+
+        let teacherFullName = "TBA";
+
+        if (courseEntry && courseEntry.teacher) {
+            const staffProfile = await StaffProfile.findById(courseEntry.teacher).populate({
+                path: 'user',
+                select: 'fullName name'
+            });
+
+            teacherFullName = 
+                staffProfile?.personalInfo?.fullName || 
+                staffProfile?.personalInfo?.name || 
+                staffProfile?.user?.fullName || 
+                staffProfile?.user?.name || 
+                staffProfile?.fullName || 
+                staffProfile?.name || 
+                "TBA";
+        }
+        // 5. Extract this specific student's scores from the studentScores array
+        const studentScoreEntry = gradeConfig.studentScores.find(
+            (s) => String(s.student) === String(studentId)
+        );
+
+        // Map maxScores with individual student scores
+        const combinedAssessments = gradeConfig.assessments.map(assessment => {
+            const matchedScoreObj = studentScoreEntry?.scores?.find(
+                scoreItem => scoreItem.assessmentTitle === assessment.title
+            );
+            return {
+                _id: assessment._id,
+                title: assessment.title,
+                maxScore: assessment.maxScore,
+                score: matchedScoreObj ? matchedScoreObj.score : undefined
+            };
+        });
+
+        return res.status(200).json({
+            success: true,
+            data: {
+                course: gradeConfig.course,
+                semester: gradeConfig.semester,
+                teacherName: teacherFullName,
+                assessments: combinedAssessments
+            }
+        });
+
+    } catch (error) {
+        console.error("Error fetching student course performance:", error);
+        return res.status(500).json({ success: false, message: "Internal server error" });
+    }
+};
+export const getMaxScore = async (req, res) => {
+    try {
+        const { courseId, sectionId, semester } = req.params;
+
+        if (!courseId || !sectionId || !semester) {
+            return res.status(400).json({
+                success: false,
+                message: "Please provide courseId, sectionId, and semester parameters."
+            });
+        }
+
+        // Find the document matching the course, section, and semester using CourseGradeConfig
+        const maxScoreConfig = await CourseGradeConfig.findOne({
+            course: courseId,
+            section: sectionId,
+            semester: semester
+        });
+
+        if (!maxScoreConfig) {
+            return res.status(404).json({
+                success: false,
+                message: "No assessment configuration found for this course and section."
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            data: maxScoreConfig // Returns the document containing the assessments array
+        });
+
+    } catch (error) {
+        console.error("Error fetching max scores:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Server error while fetching max scores.",
+            error: error.message
+        });
+    }
+};
+
