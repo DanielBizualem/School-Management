@@ -122,36 +122,39 @@ export default function TeacherGradesPage() {
             setSelectedStudentId("");
             return;
         }
-
+    
         const currentSection = sections.find((sec: any) => {
             const sId = typeof sec === 'object' && sec !== null ? (sec._id || sec.id || sec.section?._id) : sec;
             return String(sId) === String(selectedSectionId);
         });
-
-        if (currentSection && currentSection.students && currentSection.students.length > 0) {
-            setStudents(currentSection.students);
-            setSelectedStudentId("");
-            return;
-        }
-
+    
+        // Automatically grab the courseId from the selected section if it exists
+        const courseId = currentSection?.course?._id || currentSection?.course || selectedCourseId;
+    
         const fetchSectionStudents = async () => {
             try {
                 const studentApi = summeryApi.getStudentsByCourse;
                 const baseStudentUrl = typeof studentApi === 'object' ? studentApi.url : studentApi;
-
+        
+                console.log("Fetching students for Course ID:", courseId);
+                console.log("Full request URL will be:", `${baseStudentUrl}/${courseId}`);
+        
                 const res = await Axios({ 
                     ...(typeof studentApi === 'object' ? studentApi : { method: 'GET' }),
-                    url: `${baseStudentUrl}/${selectedSectionId}` 
+                    url: `${baseStudentUrl}/${courseId}` 
                 });
-                const studentList = res.data?.data || res.data?.students || res.data || [];
-                setStudents(studentList);
+        
+                console.log("Student API Full Response:", res);
+        
+                const studentList = res.data?.data || [];
+                setStudents(Array.isArray(studentList) ? studentList : []);
                 setSelectedStudentId(""); 
             } catch (error) {
                 console.error("Failed to load section students", error);
                 setStudents([]);
             }
         };
-
+    
         fetchSectionStudents();
     }, [selectedSectionId, sections]);
 
@@ -382,7 +385,7 @@ export default function TeacherGradesPage() {
                     {/* Student Selector */}
                     <div>
                         <label className="block text-[10px] font-bold text-slate-600 uppercase mb-2">Select Student</label>
-                        <select 
+                        <select
                             value={selectedStudentId ? String(selectedStudentId) : ""} 
                             onChange={(e) => setSelectedStudentId(e.target.value)}
                             disabled={!selectedSectionId}

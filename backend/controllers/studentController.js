@@ -126,21 +126,35 @@ export const getStudentsByCourse = async (req, res) => {
     try {
         const { courseId } = req.params;
 
-        // Find all class sections tied to this course
-        const sections = await ClassSection.find({ course: courseId });
-        const sectionIds = sections.map(sec => sec._id);
+        // 1. Find sections where the nested courses array contains this course ID
+        // 2. Populate the top-level 'students' array with fullName and studentID
+        const sections = await ClassSection.find({
+            "courses.course": courseId
+        }).populate({
+            path: 'students',
+            select: 'fullName studentID gradeLevel gender'
+        });
 
-        // Find students whose enrolledSections contain any of these section IDs
-        const students = await StudentProfile.find({
-            enrolledSections: { $in: sectionIds }
-        }).select("fullName studentID gradeLevel gender");
+        // Collect and deduplicate all students across the matching sections
+        const studentMap = new Map();
+        sections.forEach(sec => {
+            if (sec.students && Array.isArray(sec.students)) {
+                sec.students.forEach(student => {
+                    if (student && student._id) {
+                        studentMap.set(student._id.toString(), student);
+                    }
+                });
+            }
+        });
+
+        const students = Array.from(studentMap.values());
 
         return res.status(200).json({
             success: true,
             data: students
         });
     } catch (error) {
-        console.error("Error fetching students by course:", error);
+        console.error("Error fetching students by course via ClassSection:", error);
         return res.status(500).json({ success: false, message: error.message });
     }
 };
