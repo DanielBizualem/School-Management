@@ -107,6 +107,14 @@ export const summeryApi = {
     getStudentScoresForTeacher:{
         url: '/api/teacher/viewScore',
         method: 'GET'
+    },
+    studentAnalytics:{
+        url: '/api/teacher/analytics',
+        method: 'GET'
+    },
+    getCourseAndSection:{
+        url: '/api/teacher/courseSections',
+        method: 'GET'
     }
 };
 

@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { 
-    LayoutDashboard, Users, LogOut, PanelLeftClose, PanelLeftOpen, Settings2, ChevronsUpDown
+    LayoutDashboard, Users, LogOut, PanelLeftClose, PanelLeftOpen, Settings2, ChevronsUpDown,Wallet,ClipboardList, FileBadge
 } from "lucide-react";
 import summeryApi from "@/common/summeryApi";
 import Axios from "@/utils/Axios";
@@ -56,8 +56,9 @@ export default function StudentSidebar() {
 
     const navItems = [
         { label: "Profile", id: "profile", path: "/student/profile", icon: Users },
-        { label: "Transcript", id: "analytics", path: "/student/transcript", icon: LayoutDashboard },
-        { label: "Assessment Result", id: "marks", path: "/student/academics", icon: Users },
+        { label: "Transcript", id: "analytics", path: "/student/transcript", icon: FileBadge },
+        { label: "Assessment Result", id: "marks", path: "/student/academics", icon: ClipboardList },
+        { label: "Payment", id: "payment", path: "/student/payment", icon: Wallet },
         { label: "Settings", id: "settings", path: "/student/settings", icon: Settings2 }
     ];
     const handleLogout = () => {

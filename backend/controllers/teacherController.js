@@ -284,3 +284,134 @@ export const getStudentScoresForTeacher = async (req, res) => {
         return res.status(500).json({ success: false, message: "Internal server error" });
     }
 };
+
+export const getStudentAnalytics = async (req, res) => {
+    try {
+        const { courseId, sectionId, semester } = req.query; // Or req.params depending on your router design
+
+        // 1. Find the specific CourseGradeConfig document
+        const config = await CourseGradeConfig.findOne({
+            course: courseId,
+            section: sectionId,
+            semester: semester || "semester1"
+        }).populate({
+            path: 'studentScores.student',
+            select: 'fullName studentID'
+        });
+
+        if (!config || !config.assessments || config.assessments.length === 0) {
+            return res.status(200).json({
+                success: true,
+                data: {
+                    totalStudents: 0,
+                    passedCount: 0,
+                    failedCount: 0,
+                    highestScore: 0,
+                    lowestScore: 0,
+                    topStudents: [],
+                    bottomStudents: []
+                }
+            });
+        }
+
+        // 2. Calculate total possible max score from all assessments
+        const totalMaxScore = config.assessments.reduce((sum, assessment) => sum + assessment.maxScore, 0);
+
+        if (totalMaxScore === 0) {
+            return res.status(400).json({ success: false, message: "Total max score cannot be zero." });
+        }
+
+        // 3. Process each student's total score out of 100
+        const processedStudents = config.studentScores.map(entry => {
+            const earnedSum = entry.scores.reduce((sum, item) => sum + item.score, 0);
+            
+            // Normalize to a percentage out of 100
+            const percentage = Number(((earnedSum / totalMaxScore) * 100).toFixed(2));
+            const passingScoreThreshold = 50; // You can adjust passing threshold criteria (e.g., 50%)
+            const isPassing = percentage >= passingScoreThreshold;
+
+            return {
+                student: entry.student, // Populated student object (fullName, studentID, _id)
+                totalEarned: earnedSum,
+                totalMax: totalMaxScore,
+                scoreOutOf100: percentage,
+                isPassing
+            };
+        });
+
+        // 4. Sort students by score descending (highest to lowest)
+        processedStudents.sort((a, b) => b.scoreOutOf100 - a.scoreOutOf100);
+
+        // 5. Compute metrics
+        const totalStudents = processedStudents.length;
+        const passedCount = processedStudents.filter(s => s.isPassing).length;
+        const failedCount = totalStudents - passedCount;
+
+        const highestScore = totalStudents > 0 ? processedStudents[0].scoreOutOf100 : 0;
+        const lowestScore = totalStudents > 0 ? processedStudents[processedStudents.length - 1].scoreOutOf100 : 0;
+
+        // Best 3 students (Top 3)
+        const topStudents = processedStudents.slice(0, 3);
+
+        // Last 3 students who fell behind (Bottom 3, reversed so lowest is first or ordered appropriately)
+        const bottomStudents = [...processedStudents].reverse().slice(0, 3);
+
+        return res.status(200).json({
+            success: true,
+            data: {
+                totalStudents,
+                passedCount,
+                failedCount,
+                highestScore,
+                lowestScore,
+                topStudents,
+                bottomStudents
+            }
+        });
+
+    } catch (error) {
+        console.error("Error generating student analytics:", error);
+        return res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+export const getTeacherCoursesAndSections = async (req, res) => {
+    try {
+        // Assuming your auth middleware adds the teacher's ID to req.userId or req.user._id
+        const teacherId = req.userId || req.user?._id;
+
+        // Find all configurations where this teacher has grade sheets
+        // (Or if your CourseGradeConfig doesn't store teacher directly, you can match via ClassSection)
+        const configs = await CourseGradeConfig.find({})
+            .populate('course', 'courseName name')
+            .populate('section', 'sectionName');
+
+        // Extract unique courses and sections
+        const courseMap = new Map();
+        const sectionMap = new Map();
+
+        configs.forEach(config => {
+            if (config.course) {
+                courseMap.set(config.course._id.toString(), {
+                    _id: config.course._id,
+                    courseName: config.course.courseName || config.course.name
+                });
+            }
+            if (config.section) {
+                sectionMap.set(config.section._id.toString(), {
+                    _id: config.section._id,
+                    sectionName: config.section.sectionName
+                });
+            }
+        });
+
+        return res.status(200).json({
+            success: true,
+            courses: Array.from(courseMap.values()),
+            sections: Array.from(sectionMap.values())
+        });
+    } catch (error) {
+        console.error("Error fetching courses and sections for filters:", error);
+        return res.status(500).json({ success: false, message: error.message });
+    }
+};

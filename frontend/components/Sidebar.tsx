@@ -53,7 +53,7 @@ export default function Sidebar() {
 
     const navItems = [
         { label: "Teacher Profile", id: "profile", path: "/teacher/profile", icon: Users },
-        { label: "Dashboard Overview", id: "analytics", path: "/teacher/analytics", icon: LayoutDashboard },
+        { label: "Student Analytics", id: "analytics", path: "/teacher/analytics", icon: LayoutDashboard },
         { label: "Enter Marks", id: "marks", path: "/teacher/marks", icon: Users },
         { label: "Settings", id: "settings", path: "/teacher/settings", icon: Settings2 }
     ];

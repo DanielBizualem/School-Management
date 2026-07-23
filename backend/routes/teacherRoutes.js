@@ -1,5 +1,5 @@
 import express from "express";
-import { updateStudentGrade, generateEvaluationText, register, updateTeacher, getTeacherDetails, saveSectionMaxScores, getStudentScoresForTeacher} from "../controllers/teacherController.js";
+import { updateStudentGrade, generateEvaluationText, register, updateTeacher, getTeacherDetails, saveSectionMaxScores, getStudentScoresForTeacher, getStudentAnalytics, getTeacherCoursesAndSections} from "../controllers/teacherController.js";
 import { protect, authorizeRoles } from "../middleware/authMiddleware.js";
 import { getMaxScore, getStudentsByCourse, getTeacherCourses, updateStudentGrades } from "../controllers/studentController.js";
 
@@ -18,6 +18,8 @@ router.post('/maxScore',protect,authorizeRoles('teacher'),saveSectionMaxScores)
 router.post('/updateGrade',protect,authorizeRoles('teacher'),updateStudentGrade)
 router.get('/getMaxScore/:courseId/:sectionId/:semester',protect, authorizeRoles('teacher'),getMaxScore)
 router.get('/viewScore/:courseId/:sectionId/:studentId', protect, authorizeRoles('teacher'), getStudentScoresForTeacher);
+router.get('/analytics', protect, authorizeRoles('teacher'), getStudentAnalytics);
+router.get('/courseSections', protect, authorizeRoles('teacher'), getTeacherCoursesAndSections);
 
 
 
