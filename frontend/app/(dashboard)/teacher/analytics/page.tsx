@@ -2,6 +2,26 @@
 import React, { useEffect, useState } from 'react';
 import summeryApi from '@/common/summeryApi';
 import Axios from '@/utils/Axios.js';
+import {
+    Chart as ChartJS,
+    CategoryScale,
+    LinearScale,
+    BarElement,
+    Title,
+    Tooltip,
+    Legend,
+} from 'chart.js';
+import { Bar } from 'react-chartjs-2';
+
+// Register Chart.js modules
+ChartJS.register(
+    CategoryScale,
+    LinearScale,
+    BarElement,
+    Title,
+    Tooltip,
+    Legend
+);
 
 interface StudentInfo {
     _id: string;
@@ -17,6 +37,13 @@ interface StudentAnalyticsItem {
     isPassing: boolean;
 }
 
+interface AssessmentStat {
+    title: string;
+    maxScore: number;
+    averageScore: number;
+    averagePercentage: number;
+}
+
 interface AnalyticsData {
     totalStudents: number;
     passedCount: number;
@@ -25,27 +52,24 @@ interface AnalyticsData {
     lowestScore: number;
     topStudents: StudentAnalyticsItem[];
     bottomStudents: StudentAnalyticsItem[];
+    assessmentAverages: AssessmentStat[];
 }
 
 export default function StudentAnalyticsPage() {
-    // 1. Dropdown filter states
     const [courses, setCourses] = useState<any[]>([]);
     const [sections, setSections] = useState<any[]>([]);
     const [selectedCourseId, setSelectedCourseId] = useState<string>('');
     const [selectedSectionId, setSelectedSectionId] = useState<string>('');
     const [selectedSemester, setSelectedSemester] = useState<string>('semester1');
 
-    // 2. Analytics data & loading states
     const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
     const [loading, setLoading] = useState<boolean>(false);
 
-    // Fetch initial courses/sections list for the teacher dropdowns on mount
     useEffect(() => {
         const fetchFiltersData = async () => {
             try {
-                // Adjust endpoint based on how your app fetches courses/sections for the teacher
                 const res = await Axios({
-                    ...summeryApi.getCourseAndSection
+                    ...summeryApi.getCourseAndSection,
                 });
                 if (res.data && res.data.success) {
                     setCourses(res.data.courses || []);
@@ -55,11 +79,9 @@ export default function StudentAnalyticsPage() {
                 console.error("Failed to load filter options", error);
             }
         };
-
         fetchFiltersData();
     }, []);
 
-    // Fetch analytics whenever the selections change
     useEffect(() => {
         if (!selectedCourseId || !selectedSectionId) {
             setAnalytics(null);
@@ -89,9 +111,43 @@ export default function StudentAnalyticsPage() {
         fetchAnalytics();
     }, [selectedCourseId, selectedSectionId, selectedSemester]);
 
+    // Prepare chart data configuration
+    const chartData = {
+        labels: analytics?.assessmentAverages?.map(item => item.title) || [],
+        datasets: [
+            {
+                label: 'Class Average Performance (%)',
+                data: analytics?.assessmentAverages?.map(item => item.averagePercentage) || [],
+                backgroundColor: 'rgba(59, 130, 246, 0.6)', // Tailwind Blue-500
+                borderColor: 'rgb(37, 99, 235)', // Tailwind Blue-600
+                borderWidth: 1,
+                borderRadius: 4,
+            },
+        ],
+    };
+
+    const chartOptions = {
+        responsive: true,
+        plugins: {
+            legend: {
+                position: 'top' as const,
+            },
+            title: {
+                display: true,
+                text: 'Assessment Comparison (Class Average % per Assessment)',
+            },
+        },
+        scales: {
+            y: {
+                beginAtZero: true,
+                max: 100,
+            },
+        },
+    };
+
     return (
         <div className="p-6 bg-gray-50 min-h-screen space-y-6">
-            <h1 className="text-2xl font-bold text-gray-800">Class Performance Analytics</h1>
+            <h1 className="text-xl font-semibold text-slate-900 tracking-tight">Class Performance Analytics</h1>
 
             {/* Filter Selectors Bar */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-white p-4 rounded-lg shadow-sm border border-gray-200">
@@ -102,10 +158,10 @@ export default function StudentAnalyticsPage() {
                         onChange={(e) => setSelectedCourseId(e.target.value)}
                         className="w-full border border-gray-300 rounded-md p-2 text-sm focus:ring-blue-500 focus:border-blue-500"
                     >
-                        <option value="">-- Choose Course --</option>
+                        <option value="">Choose Course</option>
                         {courses.map((course: any) => (
                             <option key={course._id} value={course._id}>
-                                {course.courseName || course.name || course._id}
+                                {course.courseName || course.name}
                             </option>
                         ))}
                     </select>
@@ -118,10 +174,10 @@ export default function StudentAnalyticsPage() {
                         onChange={(e) => setSelectedSectionId(e.target.value)}
                         className="w-full border border-gray-300 rounded-md p-2 text-sm focus:ring-blue-500 focus:border-blue-500"
                     >
-                        <option value="">-- Choose Section --</option>
+                        <option value="">Choose Section</option>
                         {sections.map((section: any) => (
                             <option key={section._id} value={section._id}>
-                                {section.sectionName || section._id}
+                                {section.sectionName}
                             </option>
                         ))}
                     </select>
@@ -142,17 +198,17 @@ export default function StudentAnalyticsPage() {
 
             {/* Content Section */}
             {!selectedCourseId || !selectedSectionId ? (
-                <div className="p-8 text-center bg-white rounded-lg shadow-sm border border-gray-200 text-gray-500">
+                <div className="text-sm text-slate-500 mt-1">
                     Please select a course and section above to view analytics.
                 </div>
             ) : loading ? (
-                <div className="p-8 text-center bg-white rounded-lg shadow-sm border border-gray-200">Loading analytics...</div>
+                <div className="text-sm text-slate-500 mt-1">Loading analytics...</div>
             ) : !analytics || analytics.totalStudents === 0 ? (
-                <div className="p-8 text-center bg-white rounded-lg shadow-sm border border-gray-200 text-gray-500">
+                <div className="text-sm text-slate-500 mt-1">
                     No grading data available for this course and section yet.
                 </div>
             ) : (
-                <div className="bg-white rounded-lg shadow-md p-6 space-y-6">
+                <div className="space-y-6">
                     {/* Metric Cards Grid */}
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
@@ -170,6 +226,13 @@ export default function StudentAnalyticsPage() {
                         <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
                             <p className="text-sm text-amber-600 font-medium">Lowest Score (out of 100)</p>
                             <p className="text-2xl font-bold text-amber-900">{analytics.lowestScore}%</p>
+                        </div>
+                    </div>
+
+                    {/* Chart Section */}
+                    <div className="bg-white rounded-lg shadow-md p-6">
+                        <div className="w-full h-72 md:h-96 flex justify-center items-center">
+                            <Bar data={chartData} options={chartOptions} />
                         </div>
                     </div>
 

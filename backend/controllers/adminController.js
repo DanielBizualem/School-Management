@@ -339,53 +339,55 @@ export const getAllClassSections = async (req, res) => {
 
 export const createClassSection = async (req, res) => {
     try {
-        const { sectionName, gradeLevel, students, courses } = req.body;
+        const { gradeLevel, sectionName, students, course, academicYear } = req.body;
 
-        if (!sectionName || !gradeLevel) {
-            return res.status(400).json({
-                success: false,
-                message: "Section name and grade level are required."
-            });
+        if (!gradeLevel || !sectionName) {
+            return res.status(400).json({ success: false, message: "Grade level and section name are required." });
         }
 
-        const newSection = await ClassSection.create({
-            sectionName: sectionName.trim(),
-            gradeLevel,
-            students: students || [], 
-            courses: courses || []
+        // Find if the section already exists for this grade level & section name
+        let section = await ClassSection.findOne({ 
+            gradeLevel: gradeLevel, 
+            sectionName: sectionName,
+            course: course || null,
+            academicYear: academicYear || null
         });
 
-        // If courses were provided during creation, sync them to teacher profiles
-        if (courses && Array.isArray(courses) && courses.length > 0) {
-            const teacherUpdatePromises = courses.map(async (item) => {
-                if (item.teacher && item.course) {
-                    const teacherId = typeof item.teacher === 'object' ? item.teacher._id : item.teacher;
-                    const courseId = typeof item.course === 'object' ? item.course._id : item.course;
+        if (section) {
+            // Section exists! Add new students without duplicating existing ones
+            if (students && Array.isArray(students)) {
+                // Use $addToSet logic or push unique IDs
+                students.forEach(studentId => {
+                    if (!section.students.includes(studentId)) {
+                        section.students.push(studentId);
+                    }
+                });
+                await section.save();
+            }
 
-                    await StaffProfile.findByIdAndUpdate(
-                        teacherId,
-                        {
-                            $addToSet: { 
-                                assignedCourses: courseId,
-                                assignedSections: newSection._id 
-                            }
-                        }
-                    );
-                }
+            return res.status(200).json({
+                success: true,
+                message: "Students successfully added to existing section!",
+                data: section
+            });
+        } else {
+            // Section doesn't exist, create a new one safely
+            section = await ClassSection.create({
+                gradeLevel,
+                sectionName,
+                students: students || [],
+                course: course || null,
+                academicYear: academicYear || null
             });
 
-            await Promise.all(teacherUpdatePromises);
+            return res.status(201).json({
+                success: true,
+                message: "Section created and students assigned successfully!",
+                data: section
+            });
         }
-
-        return res.status(201).json({
-            success: true,
-            message: "Class section created successfully and synced to teachers.",
-            data: newSection
-        });
     } catch (error) {
-        return res.status(500).json({
-            success: false,
-            message: error.message || "Internal server error."
-        });
+        console.error("Error managing class section:", error);
+        return res.status(500).json({ success: false, message: error.message });
     }
 };

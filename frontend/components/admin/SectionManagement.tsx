@@ -239,7 +239,7 @@ export default function SectionManagementPage() {
                         disabled={loading || !gradeLevel || !sectionName || selectedStudents.length === 0}
                         className="px-6 py-2.5 bg-slate-950 hover:bg-slate-900 text-white font-bold text-xs rounded-xl transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        {loading ? "Saving Section..." : "Save Section & Students"}
+                        {loading ? "Assigning Students..." : "Add Students to Section"}
                     </button>
                 </div>
             </form>

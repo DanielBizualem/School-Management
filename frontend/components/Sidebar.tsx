@@ -55,6 +55,7 @@ export default function Sidebar() {
         { label: "Teacher Profile", id: "profile", path: "/teacher/profile", icon: Users },
         { label: "Student Analytics", id: "analytics", path: "/teacher/analytics", icon: LayoutDashboard },
         { label: "Enter Marks", id: "marks", path: "/teacher/marks", icon: Users },
+        { label: "Students Score", id: "score", path: "/teacher/studentsScore", icon: Users },
         { label: "Settings", id: "settings", path: "/teacher/settings", icon: Settings2 }
     ];
     const handleLogout = () => {
