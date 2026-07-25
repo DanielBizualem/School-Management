@@ -119,7 +119,19 @@ export const summeryApi = {
     getStudentScoreSheetTable:{
         url: '/api/teacher/score-sheet-table',
         method: 'GET'
-    }
+    },
+    uploadStudentImage: {
+        url: '/api/upload/image',
+        method: 'post'
+    },
+    getParentProfile: (id) => ({
+        url: `/api/student/parentProfile/${id}`,
+        method: "get",
+    }),
+    updateParentProfile: (id) => ({
+        url: `/api/student/updateParentProfile/${id}`,
+        method: "PATCH",
+      }),
 };
 
 export default summeryApi;

@@ -2,8 +2,6 @@
 
 import React, { useState } from "react";
 import { registerStudentAPI } from "@/services/adminApi";
-//import { jsPDF } from "jspdf";
-//import "jspdf-autotable";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable"
 import Axios from "@/utils/Axios";
@@ -17,24 +15,36 @@ export default function RegisterStudent({ onSuccess }: RegisterStudentProps): Re
     const [step, setStep] = useState(1);
     const [actionLoading, setActionLoading] = useState<boolean>(false);
     const [form, setForm] = useState({
-        email: "", fullName: "", gradeLevel: "9th Grade", gender: "Male" as const,
+        email: "", fullName: "", gradeLevel: "9th", gender: "Male" as const,
         studentPhoto: "", studentDob: "",
         parentName: "", parentPhone: "", parentJob: "", parentAddress: "", parentRelation: "Father" as const,
-        familyPhoto: "", familyPersonDob: "",parentDob: ""
+        familyPhoto: "", familyPersonDob: "", parentDob: ""
     });
-    const [errors, setErrors] = useState({});
+    const [errors, setErrors] = useState<{ [key: string]: boolean }>({});
     
     const [files, setFiles] = useState<{ studentPhoto: File | null; familyPhoto: File | null }>({
         studentPhoto: null,
         familyPhoto: null
     });
- 
 
-    
     const [previews, setPreviews] = useState<{ studentPhoto: string | null; familyPhoto: string | null }>({
         studentPhoto: null, familyPhoto: null
     });
 
+    const uploadImageToCloudinary = async (file: File): Promise<string> => {
+        const formData = new FormData();
+        formData.append("image", file); // Must match multer's upload.single("image")
+
+        const response = await Axios({
+            ...summeryApi.uploadStudentImage,
+            data: formData,
+        });
+
+        if (response?.data?.success && response?.data?.url) {
+            return response.data.url;
+        }
+        throw new Error("Failed to upload image.");
+    };
 
     const downloadRegistrationPDF = (data: any, studentID: string, tempPassword: string, previews: any) => {
         const doc = new jsPDF();
@@ -50,7 +60,7 @@ export default function RegisterStudent({ onSuccess }: RegisterStudentProps): Re
         doc.roundedRect(25, 40, 60, 60, 3, 3, 'F'); // Student Box
         doc.roundedRect(125, 40, 60, 60, 3, 3, 'F'); // Parent Box
         
-        // Placeholder Icons (simplified)
+        // Placeholder Text
         doc.setTextColor(150, 150, 150);
         doc.text("User Icon", 55, 70, { align: "center" });
         doc.text("Group Icon", 155, 70, { align: "center" });
@@ -70,7 +80,7 @@ export default function RegisterStudent({ onSuccess }: RegisterStudentProps): Re
             doc.roundedRect(x + 40, y - 5, 50, 8, 1, 1, 'F');
             
             doc.setFont("helvetica", "normal");
-            doc.text(value, x + 42, y + 1);
+            doc.text(value || "", x + 42, y + 1);
         };
     
         // Columns
@@ -111,20 +121,30 @@ export default function RegisterStudent({ onSuccess }: RegisterStudentProps): Re
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setActionLoading(true);
-        const formData = new FormData();
-        
-        // Append all text fields
-        Object.entries(form).forEach(([key, value]) => {
-            formData.append(key, value as string);
-        });
-    
-        // Append the actual files
-        if (files.studentPhoto) formData.append("studentPhoto", files.studentPhoto);
-        if (files.familyPhoto) formData.append("familyPhoto", files.familyPhoto);
-    
+
         try {
-            
-            const res = await registerStudentAPI(formData);
+            let studentPhotoUrl = form.studentPhoto;
+            let familyPhotoUrl = form.familyPhoto;
+
+            // 1. Upload Student Photo to Cloudinary if a new file was chosen
+            if (files.studentPhoto) {
+                studentPhotoUrl = await uploadImageToCloudinary(files.studentPhoto);
+            }
+
+            // 2. Upload Family Photo to Cloudinary if a new file was chosen
+            if (files.familyPhoto) {
+                familyPhotoUrl = await uploadImageToCloudinary(files.familyPhoto);
+            }
+
+            // 3. Prepare final submission payload with Cloudinary URLs
+            const finalPayload = {
+                ...form,
+                studentPhoto: studentPhotoUrl,
+                familyPhoto: familyPhotoUrl,
+            };
+
+            // 4. Send registered payload to backend
+            const res = await registerStudentAPI(finalPayload);
 
             const studentID = res?.data?.data?.customStudentID || res?.data?.customStudentID;
             const tempPassword = res?.data?.data?.tempPassword || res?.data?.tempPassword;
@@ -133,12 +153,12 @@ export default function RegisterStudent({ onSuccess }: RegisterStudentProps): Re
                 throw new Error("Student ID not found in server response.");
             }
     
-            downloadRegistrationPDF(form, studentID,tempPassword,previews);
+            downloadRegistrationPDF(finalPayload, studentID, tempPassword, previews);
             alert("Registration Successful!");
             onSuccess();
 
             setForm({
-                email: "", fullName: "", gradeLevel: "9th Grade", gender: "Male",
+                email: "", fullName: "", gradeLevel: "9th", gender: "Male",
                 studentPhoto: "", studentDob: "",
                 parentName: "", parentPhone: "", parentJob: "", parentAddress: "", parentRelation: "Father",
                 familyPhoto: "", familyPersonDob: "", parentDob: ""
@@ -146,9 +166,9 @@ export default function RegisterStudent({ onSuccess }: RegisterStudentProps): Re
             setFiles({ studentPhoto: null, familyPhoto: null });
             setPreviews({ studentPhoto: null, familyPhoto: null });
             setStep(1);
-        } catch (err) {
+        } catch (err: any) {
             console.error(err);
-            alert("Registration failed. Please try again.");
+            alert(err?.response?.data?.message || "Registration failed. Please try again.");
         } finally {
             setActionLoading(false);
         }
@@ -157,10 +177,8 @@ export default function RegisterStudent({ onSuccess }: RegisterStudentProps): Re
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, field: "studentPhoto" | "familyPhoto") => {
         const file = e.target.files?.[0];
         if (file) {
-            // Save file for submission later
             setFiles(prev => ({ ...prev, [field]: file }));
             
-            // Save preview for UI
             const reader = new FileReader();
             reader.onloadend = () => setPreviews(prev => ({ ...prev, [field]: reader.result as string }));
             reader.readAsDataURL(file);
@@ -241,7 +259,7 @@ export default function RegisterStudent({ onSuccess }: RegisterStudentProps): Re
                     {step < 2 ? (
                         <button type="button" onClick={() => setStep(2)} className="px-8 py-2 bg-slate-950 text-white font-bold text-[11px] rounded-lg">Next</button>
                     ) : (
-                        <button type="submit" disabled={actionLoading} className="px-8 py-2 bg-slate-950 text-white font-bold text-[11px] rounded-lg">
+                        <button type="submit" disabled={actionLoading} className="px-8 py-2 bg-slate-950 text-white font-bold text-[11px] rounded-lg disabled:opacity-50">
                             {actionLoading ? "Processing..." : "Submit"}
                         </button>
                     )}

@@ -1,8 +1,9 @@
+import dotenv from "dotenv";
+dotenv.config();
 import express from "express";
 
 import mongoose from "mongoose";
 
-import dotenv from "dotenv";
 import { connectDB } from "./config/Connect.js";
 import cors from "cors";
 import cookieParser from "cookie-parser";
@@ -17,7 +18,6 @@ import swaggerUi from "swagger-ui-express";
 import fs from "fs";
 
 
-dotenv.config();
 
 const app = express();
 app.use(express.json());
@@ -31,8 +31,9 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/director", directorRoutes);
 app.use("/api/teacher", teacherRoutes);
 app.use("/api/student", studentRoutes);
-app.use('/api', uploadRoutes)
+app.use('/api/upload', uploadRoutes)
 app.use("/api/user",userRoute)
+
 
 const PORT = process.env.PORT || 5000;
 

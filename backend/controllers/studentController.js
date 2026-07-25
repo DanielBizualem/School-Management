@@ -5,6 +5,7 @@ import {ClassSection} from '../models/classSection.js'
 import {StaffProfile} from '../models/staffProfile.js'
 import {CourseGradeConfig} from '../models/CourseGradeConfig.js'
 import mongoose from "mongoose";
+import {ParentProfile} from '../models/ParentProfile.js'
 
 export const viewMyDashboard = async (req, res) => {
     // Securely pull the user ID from the validated JWT token payload
@@ -384,3 +385,107 @@ export const getMaxScore = async (req, res) => {
     }
 };
 
+export const getParentProfileById = async (req, res) => {
+    try {
+      const { id } = req.params;
+   
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid parent profile ID",
+        });
+      }
+   
+      const parentProfile = await ParentProfile.findById(id);
+   
+      if (!parentProfile) {
+        return res.status(404).json({
+          success: false,
+          message: "Parent profile not found",
+        });
+      }
+   
+      return res.status(200).json({
+        success: true,
+        data: parentProfile,
+      });
+    } catch (error) {
+      console.error("getParentProfileById error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Something went wrong while fetching the parent profile",
+      });
+    }
+  };
+
+  const UPDATABLE_FIELDS = [
+    "fullName",
+    "familyPhoto",
+    "familyPersonDob",
+    "phoneNumber",
+    "jobType",
+    "address",
+    "relation",
+  ];
+   
+  /**
+   * PATCH /api/student/parentProfile/:id
+   * Updates a single parent/guardian profile by its ID.
+   */
+  export const updateParentProfileById = async (req, res) => {
+    try {
+      const { id } = req.params;
+   
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid parent profile ID",
+        });
+      }
+   
+      const updates = {};
+      for (const field of UPDATABLE_FIELDS) {
+        if (req.body[field] !== undefined) {
+          updates[field] = req.body[field];
+        }
+      }
+   
+      if (Object.keys(updates).length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: "No valid fields provided to update",
+        });
+      }
+   
+      if (updates.relation && !["Father", "Mother", "Guardian", "Other"].includes(updates.relation)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid relation value",
+        });
+      }
+   
+      const parentProfile = await ParentProfile.findByIdAndUpdate(
+        id,
+        { $set: updates },
+        { new: true, runValidators: true }
+      );
+   
+      if (!parentProfile) {
+        return res.status(404).json({
+          success: false,
+          message: "Parent profile not found",
+        });
+      }
+   
+      return res.status(200).json({
+        success: true,
+        data: parentProfile,
+      });
+    } catch (error) {
+      console.error("updateParentProfileById error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Something went wrong while updating the parent profile",
+      });
+    }
+  }; 

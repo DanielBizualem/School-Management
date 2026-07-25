@@ -1,5 +1,5 @@
 import express from "express";
-import {  fileComplaint, viewMyDashboard, getStudentTranscript, getStudentDashboardGrades, getStudentCoursePerformance} from "../controllers/studentController.js";
+import {  fileComplaint, viewMyDashboard, getStudentTranscript, getStudentDashboardGrades, getStudentCoursePerformance, getParentProfileById, updateParentProfileById} from "../controllers/studentController.js";
 import { protect, authorizeRoles } from "../middleware/authMiddleware.js";
 
 
@@ -13,6 +13,8 @@ router.post("/complaint", fileComplaint);
 router.get("/transcript", protect, authorizeRoles("student"), getStudentTranscript);
 //router.get('/viewScore',protect,authorizeRoles('student'),getStudentDashboardGrades)
 router.get('/viewScore/:courseId',protect,authorizeRoles('student'),getStudentCoursePerformance)
+router.get('/parentProfile/:id',protect, authorizeRoles('student'),getParentProfileById)
+router.patch("/updateParentProfile/:id", protect, authorizeRoles('student'), updateParentProfileById);
 
 
 
