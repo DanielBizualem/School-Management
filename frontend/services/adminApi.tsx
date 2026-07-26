@@ -5,7 +5,7 @@ export const registerStudentAPI = async (formData: FormData) => {
     const response = await Axios({
         method: summeryApi.registerStudent.method,
         url: summeryApi.registerStudent.url,
-        data: formData, // Axios detects this is FormData and handles the header!
+        data: formData,
     });
     if(response.data.success){
         console.log("Registration successful:", response.data);
@@ -25,9 +25,6 @@ export const getAllTeachersAPI = async () => {
         method: summeryApi.getAllTeachers.method,
         url: summeryApi.getAllTeachers.url
     });
-
-   
-
     return response.data.data;
 };
 

@@ -3,6 +3,8 @@ import { StaffProfile } from "../models/StaffProfile.js";
 import { StudentProfile } from "../models/StudentProfile.js";
 //import AdminProfile from "../models/AdminProfile.js";
 import {ClassSection} from '../models/classSection.js'
+import { Admin } from "../models/adminProfile.js";
+import { User } from "../models/User.js";
 
 
 
@@ -44,7 +46,7 @@ export const getUserDetail = async (req, res) => {
 
         // Route logic based on role
         if (role === 'admin') {
-            profile = await AdminProfile.findOne({ user: userId });
+            profile = await User.findById(userId) || await Admin.findOne({ user: userId });
         } else if (role === 'teacher' || role === 'director') {
             profile = await StaffProfile.findOne({ user: userId });
         } else if (role === 'student' || role === 'director') {

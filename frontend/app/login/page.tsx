@@ -28,15 +28,14 @@ export default function Login() {
                 // Save tokens
                 localStorage.setItem("accessToken", response.data.accessToken);
                 //localStorage.setItem("refreshToken", response.data.refreshToken);
-                const role = response.data.user.role; 
+                const role = response.data.user.role;
                 console.log("Logged in user role:", role);
                 // Role-based routing map
                 const roleRoutes: Record<string, string> = {
-                    admin: "/admin/dashboard",
+                    admin: "/admin/analytics",
                     director: "/director/dashboard",
                     teacher: "/teacher/profile",
                     student: "/student/profile",
-                    parent: "/parent/dashboard",
                 };
 
                 const targetPath = roleRoutes[response.data.user.role] || "/dashboard";
