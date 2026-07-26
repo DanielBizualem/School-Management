@@ -1,12 +1,12 @@
 'use client';
 
 import React, { useState } from "react";
-import { UserPlus, User, MapPin, AlertCircle, Loader2, BookOpen, CheckCircle } from "lucide-react";
+import { UserPlus, User, MapPin, AlertCircle, Loader2, BookOpen, CheckCircle, Upload } from "lucide-react";
 import { jsPDF } from "jspdf";
 import Axios from "@/utils/Axios";
 import summeryApi from "@/common/summeryApi";
 
-function SectionHeader({ icon, title }: { icon: React.ReactNode; title: string }) {
+function SectionHeader({ icon, title }: { icon: React.ReactNode; title: React.ReactNode }) {
     return (
         <div className="flex items-center gap-2.5 mb-5">
             <div className="w-8 h-8 rounded-lg bg-green-50 text-green-700 flex items-center justify-center shrink-0">
@@ -19,17 +19,45 @@ function SectionHeader({ icon, title }: { icon: React.ReactNode; title: string }
 
 export default function TeacherRegistrationForm({ onSuccess }: { onSuccess: () => void }) {
     const [loading, setLoading] = useState(false);
+    const [uploadingImage, setUploadingImage] = useState(false);
     const [showSuccessModal, setShowSuccessModal] = useState(false);
-    const [teacherData, setTeacherData] = useState<any>(null);
 
     const [formData, setFormData] = useState({
-        personalInfo: { fullName: "", birthday: "", department: "Mathematics", nationality: "", gender: "Male", maritalStatus: "Single" },
+        personalInfo: { fullName: "", birthday: "", department: "Mathematics", nationality: "", gender: "Male", maritalStatus: "Single", staffProfilePhoto: "" },
         contactAddress: { city: "", phoneNumber: "", email: "", kebele: "" },
         education: { completionLevel: "" },
         experience: "",
         emergencyContact: { fullName: "", city: "", phoneNumber: "", relationship: "" },
         salary: ""
     });
+
+    const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setUploadingImage(true);
+        try {
+            const imageFormData = new FormData();
+            imageFormData.append("image", file);
+
+            const response = await Axios({
+                ...summeryApi.uploadTeacherImage,
+                data: imageFormData,
+                headers: { "Content-Type": "multipart/form-data" }
+            });
+
+            // Expecting back a string URL from your server/cloud storage response
+            const photoUrl = response.data.url || response.data.imageUrl;
+            setFormData(prev => ({
+                ...prev,
+                personalInfo: { ...prev.personalInfo, staffProfilePhoto: photoUrl }
+            }));
+        } catch (error) {
+            console.error("Image upload failed:", error);
+        } finally {
+            setUploadingImage(false);
+        }
+    };
 
     const downloadPDF = (data: any, credentials: any) => {
         const doc = new jsPDF();
@@ -94,7 +122,33 @@ export default function TeacherRegistrationForm({ onSuccess }: { onSuccess: () =
 
                 {/* 1. Personal Info */}
                 <div className="bg-white border border-slate-200 rounded-xl p-6">
-                    <SectionHeader icon={<User size={16} />} title="Personal information" />
+                    <div className="flex items-center justify-between mb-5 flex-wrap gap-4">
+                        <div className="flex items-center gap-2.5">
+                            <div className="w-8 h-8 rounded-lg bg-green-50 text-green-700 flex items-center justify-center shrink-0">
+                                <User size={16} />
+                            </div>
+                            <h4 className="font-semibold text-slate-800 text-sm">Personal information</h4>
+                        </div>
+                        
+                        {/* Image Upload Widget with preview */}
+                        <div className="flex items-center gap-3">
+                            {formData.personalInfo.staffProfilePhoto && (
+                                <img 
+                                    src={formData.personalInfo.staffProfilePhoto} 
+                                    alt="Teacher Preview" 
+                                    className="w-9 h-9 rounded-full object-cover border border-slate-200"
+                                />
+                            )}
+                            <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition">
+                                <Upload size={14} />
+                                {uploadingImage ? "Uploading..." : formData.personalInfo.staffProfilePhoto ? "Change Photo" : "Upload Photo"}
+                                <input type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
+                            </label>
+                            {formData.personalInfo.staffProfilePhoto && (
+                                <span className="text-xs text-green-600 font-medium">Uploaded ✓</span>
+                            )}
+                        </div>
+                    </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                         <div>
                             <label className={labelClass}>Full name {required}</label>
@@ -266,7 +320,7 @@ export default function TeacherRegistrationForm({ onSuccess }: { onSuccess: () =
                 </div>
 
                 <button
-                    disabled={loading}
+                    disabled={loading || uploadingImage}
                     className="w-50 bg-blue-700 text-white py-3 rounded-xl hover:bg-blue-800 disabled:opacity-60 transition flex items-center justify-center gap-2 font-medium"
                 >
                     {loading ? <Loader2 className="animate-spin" size={18} /> : <UserPlus size={18} />}

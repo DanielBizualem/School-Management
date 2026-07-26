@@ -19,6 +19,7 @@ interface TeacherProfile {
         nationality: string;
         gender: string;
         employeeID: string;
+        staffProfilePhoto?: string; // Added staffProfilePhoto property
     };
     contactAddress: {
         email: string;
@@ -129,8 +130,16 @@ export default function TeacherProfile() {
             <div className="p-6 md:p-8 flex flex-col md:flex-row gap-6">
                 {/* Photo + quick info */}
                 <div className="w-full md:w-52 flex-shrink-0 flex flex-col items-center gap-3">
-                    <div className="w-40 h-48 md:w-full md:h-56 bg-slate-100 rounded-xl flex items-center justify-center border border-slate-200 overflow-hidden">
-                        <span className="text-slate-400 text-xs">Profile Photo</span>
+                    <div className="w-40 h-48 md:w-full md:h-56 bg-slate-100 rounded-xl flex items-center justify-center border border-slate-200 overflow-hidden relative">
+                        {personalInfo?.staffProfilePhoto ? (
+                            <img
+                                src={personalInfo.staffProfilePhoto}
+                                alt={personalInfo.fullName || "Teacher Photo"}
+                                className="w-full h-full object-cover"
+                            />
+                        ) : (
+                            <span className="text-slate-400 text-xs">Profile Photo</span>
+                        )}
                     </div>
                     <button className="w-full text-[#159eb5] font-semibold text-sm border border-[#159eb5] rounded-lg py-2 hover:bg-[#159eb5] hover:text-white transition-colors">
                         Edit Profile
@@ -168,7 +177,6 @@ export default function TeacherProfile() {
 
                     <SectionCard icon={<Briefcase size={16} />} title="Experience">
                         <ProfileRow label="Years of Experience" value={experience} />
-                        
                     </SectionCard>
 
                     <SectionCard icon={<ShieldAlert size={16} />} title="Emergency Contact">

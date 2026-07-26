@@ -15,6 +15,7 @@ const staffProfileSchema = new mongoose.Schema({
         nationality: { type: String, required: true },
         gender: { type: String, enum: ["Male", "Female"], required: true },
         maritalStatus: { type: String, enum: ["Single", "Married", "Divorced", "Widowed"], required: true },
+        staffProfilePhoto: { type: String, default: "" }
     },
 
     // Contact Address

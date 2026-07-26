@@ -132,6 +132,10 @@ export const summeryApi = {
         url: `/api/student/updateParentProfile/${id}`,
         method: "PATCH",
       }),
+      uploadTeacherImage: {
+        url: '/api/upload/image',
+        method: 'post'
+    },
 };
 
 export default summeryApi;
