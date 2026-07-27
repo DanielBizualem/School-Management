@@ -16,29 +16,40 @@ export default function Login() {
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
-
+    
         try {
-
             const response = await Axios({
                 ...summeryApi.login,
-                data:credentials
-            })
-            console.log(response.data);
+                data: credentials
+            });
+            
+            console.log("Full Login API Response:", response.data);
+    
             if (response.data.success) {
                 // Save tokens
                 localStorage.setItem("accessToken", response.data.accessToken);
-                //localStorage.setItem("refreshToken", response.data.refreshToken);
-                const role = response.data.user.role;
-                console.log("Logged in user role:", role);
+    
+                // Safely extract the role from wherever the backend might place it
+                const rawRole = 
+                    response.data.user?.role || 
+                    response.data.role || 
+                    response.data.user?.profile?.role || 
+                    "";
+    
+                const role = rawRole.toLowerCase();
+                console.log("Normalized user role for routing:", role);
+    
                 // Role-based routing map
                 const roleRoutes: Record<string, string> = {
                     admin: "/admin/analytics",
-                    director: "/director/dashboard",
+                    director: "/director/analytics",
                     teacher: "/teacher/profile",
                     student: "/student/profile",
                 };
-
-                const targetPath = roleRoutes[response.data.user.role] || "/dashboard";
+    
+                const targetPath = roleRoutes[role] || "/dashboard";
+                console.log("Redirecting to target path:", targetPath);
+                
                 router.push(targetPath);
             } else {
                 alert(response.data.message || "Invalid credentials. Please try again.");

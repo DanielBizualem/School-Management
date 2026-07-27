@@ -25,7 +25,7 @@ export const summeryApi = {
         method: "POST"
     },
     getSystemCourses: {
-        url: "/api/admin/get-all-courses",                 // Lists available courses inside the academic directory
+        url: "/api/director/get-all-courses",                 // Lists available courses inside the academic directory
         method: "GET"
     },
     getAllTeachers:{
@@ -49,7 +49,7 @@ export const summeryApi = {
         method: "PATCH"
     },
     getAllCourses:{
-        url: "/api/admin/getAllCourse",
+        url: "/api/director/getAllCourse",
         method: "GET"
     },
     addCourse:{
@@ -132,10 +132,18 @@ export const summeryApi = {
         url: `/api/student/updateParentProfile/${id}`,
         method: "PATCH",
       }),
-      uploadTeacherImage: {
+    uploadTeacherImage: {
         url: '/api/upload/image',
         method: 'post'
     },
+    assignHomeroomTeacher: {
+        url: (sectionId) => `${baseURL}/api/sections/${sectionId}/homeroom`,
+        method: "PUT"
+    },
+    assignSecondaryRole: {
+        url: `${baseURL}/api/admin/add-role`,
+        method: "POST"
+    }
 };
 
 export default summeryApi;

@@ -1,10 +1,12 @@
 import { getUserDetails, updateUserData, updateUserPassword } from "../services/userService.js";
-import { StaffProfile } from "../models/StaffProfile.js";
+//import { StaffProfile } from "../models/StaffProfile.js";
 import { StudentProfile } from "../models/StudentProfile.js";
 //import AdminProfile from "../models/AdminProfile.js";
 import {ClassSection} from '../models/classSection.js'
 import { Admin } from "../models/adminProfile.js";
 import { User } from "../models/User.js";
+import { StaffProfile } from "../models/StaffProfile.js";
+import {DirectorProfile} from '../models/directorProfile.js'
 
 
 
@@ -47,9 +49,12 @@ export const getUserDetail = async (req, res) => {
         // Route logic based on role
         if (role === 'admin') {
             profile = await User.findById(userId) || await Admin.findOne({ user: userId });
-        } else if (role === 'teacher' || role === 'director') {
+        } else if (role === 'teacher') {
             profile = await StaffProfile.findOne({ user: userId });
-        } else if (role === 'student' || role === 'director') {
+        } else if (role === 'director') {
+            // Option A: If a director maps to a StaffProfile (or has a specific director flag/collection)
+            profile = await User.findById(userId) || await DirectorProfile.findOne({ user: userId });
+        } else if (role === 'student') {
             profile = await StudentProfile.findOne({ user: userId });
             if (profile) {
                 // Find the class section where this student's ID is included in the students array
@@ -59,11 +64,10 @@ export const getUserDetail = async (req, res) => {
                 // Attach it to the response data structure expected by your frontend
                 profile.enrolledSections = assignedSection ? [assignedSection] : [];
             }
-        }
-        else {
+        } else {
             return res.status(403).json({ message: "Role profile not found." });
         }
-
+        
         if (!profile) {
             return res.status(404).json({ message: "Profile not found." });
         }

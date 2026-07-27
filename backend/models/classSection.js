@@ -30,7 +30,12 @@ const classSectionSchema = new mongoose.Schema({
     students: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: "StudentProfile" // Points to student user accounts assigned to this section
-    }]
+    }],
+    homeroomTeacher: { 
+        type: mongoose.Schema.Types.ObjectId, 
+        ref: 'StaffProfile', // Or 'User' depending on your model structure
+        default: null 
+    }
 }, { timestamps: true });
 
 // Optional: If you want to ensure unique section names per grade level globally, use this instead:

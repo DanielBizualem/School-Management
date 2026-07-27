@@ -1,13 +1,12 @@
 'use client';
 
 import React, { useState, useEffect } from "react";
-import { Loader2, Search, Download, ChevronLeft, ChevronRight, X, Plus, ArrowLeft } from "lucide-react";
+import { Loader2, Search, Download, ChevronLeft, ChevronRight, X, Plus, ArrowLeft, Key } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import Axios from "@/utils/Axios";
 import summeryApi from "@/common/summeryApi";
 
-// Consistent color assignment per department
 const DEPT_PALETTE = [
     { bg: "bg-blue-50", text: "text-blue-700", avatar: "bg-blue-100 text-blue-700" },
     { bg: "bg-purple-50", text: "text-purple-700", avatar: "bg-purple-100 text-purple-700" },
@@ -45,6 +44,15 @@ function StatusBadge({ status }: { status: string }) {
     );
 }
 
+function RoleBadge({ role }: { role: string }) {
+    const isDirector = role === "Director";
+    return (
+        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${isDirector ? "bg-indigo-50 text-indigo-700" : "bg-slate-100 text-slate-700"}`}>
+            {role || "Teacher"}
+        </span>
+    );
+}
+
 export default function TeacherRegistryPage(): React.JSX.Element {
     const [teachers, setTeachers] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -53,14 +61,20 @@ export default function TeacherRegistryPage(): React.JSX.Element {
     const [currentPage, setCurrentPage] = useState(1);
     const [selectedTeacher, setSelectedTeacher] = useState<any>(null);
     const [editStatus, setEditStatus] = useState("Current");
+    const [updatingStatus, setUpdatingStatus] = useState(false);
+    
+    // State for assigning an additional role
+    const [additionalRole, setAdditionalRole] = useState("Director");
+    const [generatedCredentials, setGeneratedCredentials] = useState<{ newID: string; tempPass: string } | null>(null);
+
     const [view, setView] = useState("list");
 
-    // Form state for standalone registration
     const [formData, setFormData] = useState({
         fullName: "",
         teacherID: "",
         department: "",
         status: "Current",
+        role: "Teacher",
         emergencyContactName: "",
         emergencyContactPhone: "",
         emergencyContactRelationship: ""
@@ -79,9 +93,18 @@ export default function TeacherRegistryPage(): React.JSX.Element {
 
     const updateTeacherStatusAPI = async (teacherId: string, status: string) => {
         const response = await Axios({
-            method: summeryApi.updateTeacher.method,
-            url: summeryApi.updateTeacher.url,
+            method: summeryApi.updateTeacher?.method || "PUT",
+            url: summeryApi.updateTeacher?.url || "/api/teacher/update-status",
             data: { teacherId, status }
+        });
+        return response.data;
+    };
+
+    const addRoleAPI = async (teacherId: string, newRole: string) => {
+        const response = await Axios({
+            method: summeryApi.assignSecondaryRole?.method || "POST",
+            url: summeryApi.assignSecondaryRole?.url || "/api/teacher/add-role",
+            data: { teacherId, newRole }
         });
         return response.data;
     };
@@ -114,7 +137,10 @@ export default function TeacherRegistryPage(): React.JSX.Element {
     }, []);
 
     useEffect(() => {
-        if (selectedTeacher) setEditStatus(selectedTeacher.status || "Current");
+        if (selectedTeacher) {
+            setEditStatus(selectedTeacher.status || "Current");
+            setGeneratedCredentials(null);
+        }
     }, [selectedTeacher]);
 
     const filteredTeachers = Array.isArray(teachers)
@@ -147,11 +173,12 @@ export default function TeacherRegistryPage(): React.JSX.Element {
             t.employeeID || t.teacherID || "N/A",
             t.fullName || t.personalInfo?.fullName || "N/A",
             t.department || t.personalInfo?.department || "N/A",
+            t.role || "Teacher",
             t.status || "Current",
         ]);
 
         autoTable(doc, {
-            head: [["No.", "Teacher ID", "Full Name", "Department", "Status"]],
+            head: [["No.", "Teacher ID", "Full Name", "Department", "Role", "Status"]],
             body: tableData,
             startY: 20,
         });
@@ -168,6 +195,7 @@ export default function TeacherRegistryPage(): React.JSX.Element {
                 teacherID: formData.teacherID,
                 department: formData.department,
                 status: formData.status,
+                role: formData.role,
                 emergencyContact: {
                     fullName: formData.emergencyContactName,
                     phoneNumber: formData.emergencyContactPhone,
@@ -179,6 +207,7 @@ export default function TeacherRegistryPage(): React.JSX.Element {
                 teacherID: "",
                 department: "",
                 status: "Current",
+                role: "Teacher",
                 emergencyContactName: "",
                 emergencyContactPhone: "",
                 emergencyContactRelationship: ""
@@ -203,7 +232,7 @@ export default function TeacherRegistryPage(): React.JSX.Element {
                     <ArrowLeft size={20} /> Back to list
                 </button>
                 <div className="max-w-2xl mx-auto bg-white border border-slate-200 rounded-2xl p-8 shadow-sm">
-                    <h2 className="text-xl font-bold text-slate-900 mb-6">Register New Teacher</h2>
+                    <h2 className="text-xl font-bold text-slate-900 mb-6">Register New Staff</h2>
                     <form onSubmit={handleRegisterSubmit} className="space-y-4">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
@@ -230,7 +259,7 @@ export default function TeacherRegistryPage(): React.JSX.Element {
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div>
                                 <label className="block text-xs font-medium text-slate-600 mb-1">Department</label>
                                 <input
@@ -241,6 +270,17 @@ export default function TeacherRegistryPage(): React.JSX.Element {
                                     onChange={(e) => setFormData({ ...formData, department: e.target.value })}
                                     placeholder="Computer Science"
                                 />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-medium text-slate-600 mb-1">Role</label>
+                                <select
+                                    className="w-full p-2.5 border border-slate-300 rounded-xl text-sm outline-none focus:border-slate-500 bg-white text-slate-700"
+                                    value={formData.role}
+                                    onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                                >
+                                    <option value="Teacher">Teacher</option>
+                                    <option value="Director">Director</option>
+                                </select>
                             </div>
                             <div>
                                 <label className="block text-xs font-medium text-slate-600 mb-1">Status</label>
@@ -305,7 +345,7 @@ export default function TeacherRegistryPage(): React.JSX.Element {
                                 className="flex items-center gap-2 px-5 py-2 bg-black text-white rounded-xl text-sm font-medium hover:bg-slate-800 disabled:opacity-50"
                             >
                                 {submitting && <Loader2 size={16} className="animate-spin" />}
-                                Save Teacher
+                                Save Staff
                             </button>
                         </div>
                     </form>
@@ -318,7 +358,7 @@ export default function TeacherRegistryPage(): React.JSX.Element {
         <div className="flex-1 bg-[#f8fafc] p-8 min-h-screen">
             <div className="flex justify-between items-center mb-6">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-900">Teachers</h1>
+                    <h1 className="text-2xl font-bold text-slate-900">Teachers & Directors</h1>
                     <p className="text-sm text-slate-500 mt-0.5">
                         {filteredTeachers.length} {filteredTeachers.length === 1 ? "record" : "records"}
                     </p>
@@ -366,7 +406,7 @@ export default function TeacherRegistryPage(): React.JSX.Element {
                 </div>
             ) : filteredTeachers.length === 0 ? (
                 <div className="text-center py-20 bg-white border border-slate-200 rounded-xl">
-                    <p className="text-slate-500 text-sm">No teachers match your search.</p>
+                    <p className="text-slate-500 text-sm">No records match your search.</p>
                 </div>
             ) : (
                 <>
@@ -375,9 +415,10 @@ export default function TeacherRegistryPage(): React.JSX.Element {
                             <thead className="bg-slate-50 text-slate-500">
                                 <tr>
                                     <th className="px-6 py-3 font-medium w-12">No.</th>
-                                    <th className="px-6 py-3 font-medium">Teacher</th>
-                                    <th className="px-6 py-3 font-medium">Teacher ID</th>
+                                    <th className="px-6 py-3 font-medium">Staff Member</th>
+                                    <th className="px-6 py-3 font-medium">ID</th>
                                     <th className="px-6 py-3 font-medium">Department</th>
+                                    <th className="px-6 py-3 font-medium">Role</th>
                                     <th className="px-6 py-3 font-medium">Status</th>
                                     <th className="px-6 py-3 font-medium text-right">Action</th>
                                 </tr>
@@ -388,6 +429,7 @@ export default function TeacherRegistryPage(): React.JSX.Element {
                                     const dept = teacher.department || teacher.personalInfo?.department || "N/A";
                                     const id = teacher.employeeID || teacher.teacherID || "N/A";
                                     const status = teacher.status || "Current";
+                                    const role = teacher.role || "Teacher";
                                     const style = getDeptStyle(dept);
 
                                     return (
@@ -407,6 +449,9 @@ export default function TeacherRegistryPage(): React.JSX.Element {
                                                 <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-medium ${style.bg} ${style.text}`}>
                                                     {dept}
                                                 </span>
+                                            </td>
+                                            <td className="px-6 py-3.5">
+                                                <RoleBadge role={role} />
                                             </td>
                                             <td className="px-6 py-3.5">
                                                 <StatusBadge status={status} />
@@ -450,7 +495,7 @@ export default function TeacherRegistryPage(): React.JSX.Element {
 
             {selectedTeacher && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl p-8 max-w-2xl w-full shadow-2xl relative">
+                    <div className="bg-white rounded-2xl p-8 max-w-2xl w-full shadow-2xl relative max-h-[90vh] overflow-y-auto">
                         <button
                             onClick={() => setSelectedTeacher(null)}
                             className="absolute top-6 right-6 p-1 hover:bg-slate-100 rounded-full transition"
@@ -467,8 +512,9 @@ export default function TeacherRegistryPage(): React.JSX.Element {
                                 <h2 className="text-xl font-bold text-slate-900">
                                     {selectedTeacher.fullName || selectedTeacher.personalInfo?.fullName}
                                 </h2>
-                                <div className="mt-1">
+                                <div className="flex gap-2 mt-1">
                                     <StatusBadge status={selectedTeacher.status || "Current"} />
+                                    <RoleBadge role={selectedTeacher.role || "Teacher"} />
                                 </div>
                             </div>
                         </div>
@@ -479,7 +525,7 @@ export default function TeacherRegistryPage(): React.JSX.Element {
                                     Profile info
                                 </p>
                                 <p>
-                                    <span className="text-slate-500">Teacher ID: </span>
+                                    <span className="text-slate-500">Staff ID: </span>
                                     <span className="font-mono text-slate-700">
                                         {selectedTeacher.employeeID || selectedTeacher.teacherID}
                                     </span>
@@ -511,34 +557,104 @@ export default function TeacherRegistryPage(): React.JSX.Element {
                             </div>
                         </div>
 
-                        <div className="flex flex-col gap-2 pt-6 border-t border-slate-200">
-                            <label className="text-sm font-semibold text-slate-500">Employment status</label>
-                            <select
-                                className="w-48 p-2 border border-slate-300 rounded-xl bg-slate-50 outline-none focus:ring-2 focus:ring-green-200"
-                                value={editStatus}
-                                onChange={(e) => setEditStatus(e.target.value)}
-                            >
-                                <option value="Current">Current</option>
-                                <option value="Leave">On leave</option>
-                            </select>
-
-                            <div className="flex gap-2 mt-2">
+                        {/* Section to Edit Status (Current or Leave) */}
+                        <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl mb-4">
+                            <h3 className="text-sm font-semibold text-slate-800 mb-2">Update Status</h3>
+                            <div className="flex gap-3 items-end">
+                                <div className="flex-1">
+                                    <label className="block text-xs font-medium text-slate-600 mb-1">Status</label>
+                                    <select
+                                        className="w-full p-2 border border-slate-300 rounded-xl bg-white text-sm outline-none text-slate-700"
+                                        value={editStatus}
+                                        onChange={(e) => setEditStatus(e.target.value)}
+                                    >
+                                        <option value="Current">Current</option>
+                                        <option value="Leave">On leave</option>
+                                    </select>
+                                </div>
                                 <button
-                                    className="text-white bg-green-700 border border-transparent hover:bg-green-800 focus:ring-4 focus:ring-green-200 font-medium rounded-full text-sm px-4 py-2.5 focus:outline-none"
+                                    disabled={updatingStatus}
+                                    className="px-4 py-2 bg-black text-white rounded-xl text-sm font-medium hover:bg-slate-800 shrink-0 disabled:opacity-50 flex items-center gap-2"
                                     onClick={async () => {
                                         try {
+                                            setUpdatingStatus(true);
                                             const teacherId = selectedTeacher._id || selectedTeacher.id;
                                             await updateTeacherStatusAPI(teacherId, editStatus);
-                                            fetchTeachers();
-                                            setSelectedTeacher(null);
+                                            
+                                            // Update local state smoothly
+                                            setSelectedTeacher((prev: any) => ({ ...prev, status: editStatus }));
+                                            await fetchTeachers();
                                         } catch (err) {
-                                            alert("Update failed!");
+                                            console.error("Failed to update status:", err);
+                                            alert("Failed to update status.");
+                                        } finally {
+                                            setUpdatingStatus(false);
                                         }
                                     }}
                                 >
-                                    Save changes
+                                    {updatingStatus && <Loader2 size={16} className="animate-spin" />}
+                                    Save Status
                                 </button>
                             </div>
+                        </div>
+
+                        {/* Section to Assign New Role with New ID/Password */}
+                        <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl mb-6">
+                            <h3 className="text-sm font-semibold text-slate-800 mb-2 flex items-center gap-1.5">
+                                <Key size={16} className="text-slate-600" /> Assign Additional Role (Generate New Credentials)
+                            </h3>
+                            <p className="text-xs text-slate-500 mb-4">
+                                This creates a separate login ID and password for the secondary role without deleting the user's current account.
+                            </p>
+
+                            <div className="flex gap-3 items-end">
+                                <div className="flex-1">
+                                    <label className="block text-xs font-medium text-slate-600 mb-1">Select Role to Add</label>
+                                    <select
+                                        className="w-full p-2 border border-slate-300 rounded-xl bg-white text-sm outline-none text-slate-700"
+                                        value={additionalRole}
+                                        onChange={(e) => setAdditionalRole(e.target.value)}
+                                    >
+                                        <option value="Director">Director</option>
+                                        <option value="Teacher">Teacher</option>
+                                    </select>
+                                </div>
+                                <button
+                                    className="px-4 py-2 bg-black text-white rounded-xl text-sm font-medium hover:bg-slate-800 shrink-0"
+                                    onClick={async () => {
+                                        try {
+                                            const teacherId = selectedTeacher._id || selectedTeacher.id;
+                                            const res = await addRoleAPI(teacherId, additionalRole);
+                                            setGeneratedCredentials({
+                                                newID: res?.newID || res?.data?.newID || "DIR-" + Math.floor(1000 + Math.random() * 9000),
+                                                tempPass: res?.tempPass || res?.data?.tempPass || "Pass@1234"
+                                            });
+                                            fetchTeachers();
+                                        } catch (err) {
+                                            alert("Failed to generate credentials for the new role.");
+                                        }
+                                    }}
+                                >
+                                    Generate Credentials
+                                </button>
+                            </div>
+
+                            {generatedCredentials && (
+                                <div className="mt-4 p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-800 space-y-1">
+                                    <p className="font-semibold">Successfully generated new role credentials:</p>
+                                    <p><span className="font-medium">New ID:</span> {generatedCredentials.newID}</p>
+                                    <p><span className="font-medium">Temp Password:</span> {generatedCredentials.tempPass}</p>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="flex justify-end gap-3">
+                            <button
+                                onClick={() => setSelectedTeacher(null)}
+                                className="px-4 py-2 bg-black text-white rounded-xl text-sm font-medium hover:bg-slate-800"
+                            >
+                                Close
+                            </button>
                         </div>
                     </div>
                 </div>

@@ -1,4 +1,58 @@
 import { getSystemAnalytics, trackTeacherAttendance, generateGlobalRoster,getStrugglingCoursesByGrade } from "../services/directorService.js";
+import {ClassSection} from '../models/classSection.js'
+import mongoose from "mongoose";
+import { User } from "../models/User.js";
+import bcrypt from "bcryptjs";
+import { DirectorProfile } from "../models/directorProfile.js";
+import { Course } from "../models/Course.js";
+
+
+export const createDirector = async (req, res) => {
+    const { email, password, fullName, employeeID, phoneNumber } = req.body;
+
+    // Start a Mongoose session for the transaction
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
+    try {
+        // 1. Check if user already exists
+        const existingUser = await User.findOne({ email });
+        if (existingUser) {
+            await session.abortTransaction();
+            return res.status(400).json({ message: "Email already registered" });
+        }
+
+        // 2. Hash the password
+        const hashedPassword = await bcrypt.hash(password, 12);
+
+        // 3. Create the User (Auth record with role set to "director")
+        const newUser = await User.create([{
+            email,
+            password: hashedPassword,
+            role: "director"
+        }], { session });
+
+        // 4. Create the Director Profile record
+        await DirectorProfile.create([{
+            user: newUser[0]._id,
+            fullName,
+            employeeID,
+            phoneNumber,
+        }], { session });
+
+        // Commit the transaction
+        await session.commitTransaction();
+        
+        res.status(201).json({ message: "Director created successfully" });
+
+    } catch (error) {
+        // If anything fails, undo all changes
+        await session.abortTransaction();
+        res.status(500).json({ message: "Error creating director", error: error.message });
+    } finally {
+        session.endSession();
+    }
+};
 
 export const viewDashboardAnalytics = async (req, res) => {
     try {
@@ -40,3 +94,58 @@ export const downloadRosterData = async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 };
+
+//recent added api's
+
+export const assignHomeroomTeacher = async (req, res) => {
+    try {
+        const { sectionId } = req.params;
+        const { teacherId } = req.body; // StaffProfile ID or User ID of the teacher
+
+        // Optional: Ensure a teacher isn't already assigned as homeroom to another section (if 1-to-1 rule applies)
+        const existingAssignment = await ClassSection.findOne({ homeroomTeacher: teacherId });
+        if (existingAssignment && existingAssignment._id.toString() !== sectionId) {
+            return res.status(400).json({ 
+                success: false, 
+                message: `This teacher is already assigned as homeroom to section ${existingAssignment.sectionName}` 
+            });
+        }
+
+        const updatedSection = await ClassSection.findByIdAndUpdate(
+            sectionId,
+            { homeroomTeacher: teacherId || null },
+            { new: true }
+        ).populate('homeroomTeacher', 'fullName email phone');
+
+        if (!updatedSection) {
+            return res.status(404).json({ success: false, message: "Class section not found." });
+        }
+
+        return res.status(200).json({ 
+            success: true, 
+            message: "Homeroom teacher assigned successfully.", 
+            data: updatedSection 
+        });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: "Server error", error: error.message });
+    }
+};
+
+export const getAllCourses = async (req, res) => {
+    try {
+        // Fetch all courses
+        const courses = await Course.find({});
+
+        res.status(200).json({
+            success: true,
+            count: courses.length,
+            data: courses
+        });
+    } catch (error) {
+        res.status(500).json({ 
+            success: false, 
+            message: "Error fetching courses", 
+            error: error.message 
+        });
+    }
+}

@@ -13,6 +13,7 @@ import { getAdminDetail } from "../services/adminService.js";
 import {SchoolSetting} from "../models/SchoolSetting.js";
 import { ClassSection } from "../models/classSection.js";
 import { StaffProfile } from "../models/staffProfile.js";
+import { DirectorProfile } from "../models/directorProfile.js";
 
 export const registerStudent = async (req, res) => {
     const session = await mongoose.startSession();
@@ -84,25 +85,6 @@ export const addCourse = async (req, res) => {
     }
 };
 
-export const getAllCourses = async (req, res) => {
-    try {
-        // Fetch all courses
-        const courses = await Course.find({});
-
-        res.status(200).json({
-            success: true,
-            count: courses.length,
-            data: courses
-        });
-    } catch (error) {
-        res.status(500).json({ 
-            success: false, 
-            message: "Error fetching courses", 
-            error: error.message 
-        });
-    }
-}
-
 export const createAdmin = async (req, res) => {
     const { email, password, fullName, adminID, department, phoneNumber, permissions } = req.body;
 
@@ -146,6 +128,53 @@ export const createAdmin = async (req, res) => {
         // If anything fails, undo all changes
         await session.abortTransaction();
         res.status(500).json({ message: "Error creating admin", error: error.message });
+    } finally {
+        session.endSession();
+    }
+};
+
+export const createDirector = async (req, res) => {
+    const { email, password, fullName, employeeID, phoneNumber } = req.body;
+
+    // Start a Mongoose session for the transaction
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
+    try {
+        // 1. Check if user already exists
+        const existingUser = await User.findOne({ email });
+        if (existingUser) {
+            await session.abortTransaction();
+            return res.status(400).json({ message: "Email already registered" });
+        }
+
+        // 2. Hash the password
+        const hashedPassword = await bcrypt.hash(password, 12);
+
+        // 3. Create the User (Auth record with role set to "director")
+        const newUser = await User.create([{
+            email,
+            password: hashedPassword,
+            role: "director"
+        }], { session });
+
+        // 4. Create the Director Profile record
+        await DirectorProfile.create([{
+            user: newUser[0]._id,
+            fullName,
+            employeeID,
+            phoneNumber,
+        }], { session });
+
+        // Commit the transaction
+        await session.commitTransaction();
+        
+        res.status(201).json({ message: "Director created successfully" });
+
+    } catch (error) {
+        // If anything fails, undo all changes
+        await session.abortTransaction();
+        res.status(500).json({ message: "Error creating director", error: error.message });
     } finally {
         session.endSession();
     }
@@ -391,4 +420,77 @@ export const createClassSection = async (req, res) => {
         return res.status(500).json({ success: false, message: error.message });
     }
 };
+export const addTeacherRoleController = async(req, res) => {
+    try {
+        const { teacherId, newRole } = req.body; // e.g., teacherId can be the StaffProfile _id or employeeID
 
+        // 1. Find the existing StaffProfile to get their details
+        const staffProfile = await StaffProfile.findById(teacherId);
+        if (!staffProfile) {
+            return res.status(404).json({
+                success: false,
+                message: "Staff profile not found."
+            });
+        }
+
+        const rolePrefix = newRole.toLowerCase() === "director" ? "DIR" : "EMP";
+        const currentYearSuffix = "26"; // Or dynamically get current 2-digit year: new Date().getFullYear().toString().slice(-2)
+
+        // 2. Find the latest user ID matching this prefix to calculate the next sequence number
+        const latestUser = await User.findOne({ 
+            employeeID: { $regex: `^${rolePrefix}/\\d+/${currentYearSuffix}$` } 
+        }).sort({ createdAt: -1 });
+        let nextNumber = 1;
+        if (latestUser && latestUser.employeeID) {
+            // Example format: "EMP/0006/26" -> split by "/" to get the middle number ("0006")
+            const parts = latestUser.employeeID.split("/");
+            if (parts.length >= 2) {
+                const parsedNum = parseInt(parts[1], 10);
+                if (!isNaN(parsedNum)) {
+                    nextNumber = parsedNum + 1;
+                }
+            }
+        }
+
+        // Format number with leading zeros (e.g., 6 becomes "0006")
+        const paddedNumber = String(nextNumber).padStart(4, "0");
+        const newEmployeeID = `${rolePrefix}/${paddedNumber}/${currentYearSuffix}`;
+
+        // 3. Generate a temporary password
+        const tempPass = crypto.randomBytes(4).toString("hex"); // e.g., "a1b2c3d4"
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(tempPass, salt);
+
+        // 4. Create a NEW User document for authentication with the new role and new ID
+        const newUser = await User.create({
+            employeeID: newEmployeeID,
+            password: hashedPassword,
+            role: newRole.toLowerCase(), // e.g., "director"
+            isFirstLogin: true
+        });
+
+        // Optional: If you want to link multiple user accounts to a single StaffProfile, 
+        // you can add a field like `userAccounts: [userId1, userId2]` in your StaffProfile schema.
+        if (staffProfile.userAccounts) {
+            staffProfile.userAccounts.push(newUser._id);
+            await staffProfile.save();
+        }
+
+        // 5. Return the new credentials to the admin
+        return res.status(200).json({
+            success: true,
+            message: `New ${newRole} account created successfully.`,
+            data: {
+                newID: newEmployeeID,
+                tempPass: tempPass
+            }
+        });
+
+    } catch (error) {
+        console.error("Error adding role account:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Internal server error"
+        });
+    }
+}
