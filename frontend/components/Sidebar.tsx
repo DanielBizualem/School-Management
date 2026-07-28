@@ -56,6 +56,7 @@ export default function Sidebar() {
         { label: "Student Analytics", id: "analytics", path: "/teacher/analytics", icon: LayoutDashboard },
         { label: "Enter Marks", id: "marks", path: "/teacher/marks", icon: Users },
         { label: "Students Score", id: "score", path: "/teacher/studentsScore", icon: Users },
+        { label: "Students Roster", id: "roster", path: "/teacher/roster", icon: Users },
         { label: "Settings", id: "settings", path: "/teacher/settings", icon: Settings2 }
     ];
     const handleLogout = () => {
@@ -102,13 +103,16 @@ export default function Sidebar() {
             </button>
 
             {/* Brand Header */}
-            <div className="p-6 border-b border-slate-800/50">
+            <div className="p-4 py-2 border-b border-gray-700">
                 <div className="flex flex-col items-center font-sans">
                     {!isCollapsed ? (
-                        <>
-                            <span className="text-white font-black text-lg tracking-wider">ONESMOS NESIB</span>
-                            <span className="text-3xs font-mono tracking-widest text-cyan-500 uppercase">HIGH SCHOOL</span>
-                        </>
+                        <div className="flex gap-3">
+                            <img src="https://res.cloudinary.com/dsjiso86u/image/upload/v1785101664/onismos-removebg-preview_h7hrle.png" alt="onismos" width={45} height={10} className="rounded-full shadow-2xl"/>
+                            <div className="flex flex-col justify-center items-center">
+                                <p className="text-white font-black text-md tracking-wider">ONESMOS NESIB</p>
+                                <p className="text-2xs font-mono tracking-widest text-cyan-500 uppercase">HIGH SCHOOL</p>
+                            </div>
+                        </div>
                     ) : (
                         <div className="text-white font-black text-sm w-8 h-8 rounded-xl bg-slate-900 flex items-center justify-center">ONA</div>
                     )}
@@ -116,7 +120,7 @@ export default function Sidebar() {
             </div>
 
             {/* Nav Links */}
-            <nav className="flex-1 p-3 space-y-3 font-sans">
+            <nav className="flex-1 px-3 py-2 pt-5 space-y-1 font-sans">
                 {navItems.map((item) => {
                     const isActive = pathname === item.path;
                     return (

@@ -39,6 +39,6 @@ const classSectionSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Optional: If you want to ensure unique section names per grade level globally, use this instead:
-classSectionSchema.index({ sectionName: 1, gradeLevel: 1 }, { unique: true });
+
 
 export const ClassSection = mongoose.models.ClassSection || mongoose.model("ClassSection", classSectionSchema);

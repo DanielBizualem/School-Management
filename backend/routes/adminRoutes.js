@@ -30,7 +30,7 @@ router.post('/registerTeachers', protect, authorizeRoles('admin'), register);
 router.get('/getAllTeachers',protect, authorizeRoles('admin','director'), getTeachers);
 router.get('/getAdminDetail', protect, authorizeRoles('admin'),getAdminDetailController)
 router.patch("/updateTeacher",protect,authorizeRoles("admin"), updateTeacher);
-router.post('/assignTeacher',protect,authorizeRoles('admin'),assignTeacherToSection)
+router.post('/assignTeacher',protect,authorizeRoles('admin','director'),assignTeacherToSection)
 router.post("/registerCourse",protect, authorizeRoles("admin","director"), addCourse);
 router.post("/initializeYear",protect, authorizeRoles("admin"), initializeSettings)
 router.patch("/updateSetting",protect,authorizeRoles("admin"), updateSettings);

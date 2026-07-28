@@ -100,37 +100,38 @@ export const downloadRosterData = async (req, res) => {
 export const assignHomeroomTeacher = async (req, res) => {
     try {
         const { sectionId } = req.params;
-        const { teacherId } = req.body; // StaffProfile ID or User ID of the teacher
-
-        // Optional: Ensure a teacher isn't already assigned as homeroom to another section (if 1-to-1 rule applies)
-        const existingAssignment = await ClassSection.findOne({ homeroomTeacher: teacherId });
-        if (existingAssignment && existingAssignment._id.toString() !== sectionId) {
-            return res.status(400).json({ 
-                success: false, 
-                message: `This teacher is already assigned as homeroom to section ${existingAssignment.sectionName}` 
-            });
-        }
+        const { teacherId } = req.body;
 
         const updatedSection = await ClassSection.findByIdAndUpdate(
             sectionId,
-            { homeroomTeacher: teacherId || null },
+            { homeroomTeacher: teacherId },
             { new: true }
-        ).populate('homeroomTeacher', 'fullName email phone');
+        ).populate({
+            path: 'homeroomTeacher',
+            select: 'fullName staffID' // Adjust fields based on your StaffProfile model structure
+        });
 
         if (!updatedSection) {
-            return res.status(404).json({ success: false, message: "Class section not found." });
+            return res.status(404).json({ 
+                success: false, 
+                message: "Class section not found" 
+            });
         }
 
-        return res.status(200).json({ 
-            success: true, 
-            message: "Homeroom teacher assigned successfully.", 
-            data: updatedSection 
+        return res.status(200).json({
+            success: true,
+            message: "Homeroom teacher assigned successfully",
+            data: updatedSection
         });
+
     } catch (error) {
-        return res.status(500).json({ success: false, message: "Server error", error: error.message });
+        console.error("Error assigning homeroom teacher:", error);
+        return res.status(500).json({ 
+            success: false, 
+            message: error.message 
+        });
     }
 };
-
 export const getAllCourses = async (req, res) => {
     try {
         // Fetch all courses
@@ -149,3 +150,4 @@ export const getAllCourses = async (req, res) => {
         });
     }
 }
+

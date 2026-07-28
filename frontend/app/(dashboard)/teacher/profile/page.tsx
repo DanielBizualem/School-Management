@@ -88,10 +88,66 @@ export default function TeacherProfile() {
         </div>
     );
 
+    // --- Skeleton building blocks ---
+    const SkeletonBlock = ({ className = "" }: { className?: string }) => (
+        <div className={`bg-slate-200 rounded animate-pulse ${className}`} />
+    );
+
+    const SkeletonRow = () => (
+        <div className="flex flex-col gap-1.5">
+            <SkeletonBlock className="h-2.5 w-16" />
+            <SkeletonBlock className="h-3.5 w-32" />
+        </div>
+    );
+
+    const SkeletonSectionCard = ({ rows = 4 }: { rows?: number }) => (
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="flex items-center gap-2 px-5 py-3 bg-slate-50 border-b border-slate-200">
+                <SkeletonBlock className="h-4 w-4 rounded-full" />
+                <SkeletonBlock className="h-3.5 w-32" />
+            </div>
+            <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+                {Array.from({ length: rows }).map((_, i) => (
+                    <SkeletonRow key={i} />
+                ))}
+            </div>
+        </div>
+    );
+
     if (loading) {
         return (
-            <div className="w-full bg-white border border-slate-200 rounded-xl p-10 flex items-center justify-center">
-                <span className="text-slate-400 text-sm animate-pulse">Loading profile...</span>
+            <div className="w-full bg-slate-50 border border-slate-200 rounded-xl overflow-hidden shadow-sm font-sans">
+                {/* Header skeleton */}
+                <div className="bg-gradient-to-r from-[#159eb5] to-[#0f7e91] px-6 py-5 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <div className="bg-white/15 p-2 rounded-lg">
+                            <div className="w-[22px] h-[22px] bg-white/30 rounded animate-pulse" />
+                        </div>
+                        <div className="flex flex-col gap-2">
+                            <div className="h-4 w-40 bg-white/30 rounded animate-pulse" />
+                            <div className="h-2.5 w-24 bg-white/20 rounded animate-pulse" />
+                        </div>
+                    </div>
+                    <div className="h-6 w-16 bg-white/20 rounded-full animate-pulse" />
+                </div>
+
+                {/* Body skeleton */}
+                <div className="p-6 md:p-8 flex flex-col md:flex-row gap-6">
+                    {/* Photo + quick info skeleton */}
+                    <div className="w-full md:w-52 flex-shrink-0 flex flex-col items-center gap-3">
+                        <div className="w-40 h-48 md:w-full md:h-56 bg-slate-200 rounded-xl animate-pulse" />
+                        <div className="w-full h-9 bg-slate-200 rounded-lg animate-pulse" />
+                    </div>
+
+                    {/* Section cards skeleton */}
+                    <div className="flex-1 flex flex-col gap-5">
+                        <SkeletonSectionCard rows={6} />
+                        <SkeletonSectionCard rows={4} />
+                        <SkeletonSectionCard rows={1} />
+                        <SkeletonSectionCard rows={1} />
+                        <SkeletonSectionCard rows={3} />
+                    </div>
+                </div>
             </div>
         );
     }

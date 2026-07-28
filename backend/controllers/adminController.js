@@ -357,7 +357,11 @@ export const getAllClassSections = async (req, res) => {
                 path: 'courses.teacher',
                 select: 'fullName personalInfo.fullName personalInfo.department'
             })
-            .populate('students'); // <--- This is what populates the students array
+            .populate({
+                path: 'homeroomTeacher',
+                select: 'employeeID personalInfo.fullName'
+            })
+            .populate('students');
 
         return res.status(200).json({
             success: true,

@@ -136,10 +136,6 @@ export const summeryApi = {
         url: '/api/upload/image',
         method: 'post'
     },
-    assignHomeroomTeacher: {
-        url: (sectionId) => `${baseURL}/api/sections/${sectionId}/homeroom`,
-        method: "PUT"
-    },
     assignSecondaryRole: {
         url: `${baseURL}/api/admin/add-role`,
         method: "POST"
@@ -175,6 +171,18 @@ export const summeryApi = {
     approveStudentRegistration: {
         url: "/api/admin/registration-approve", // append /:id dynamically when calling
         method: "PUT"
+    },
+    assignHomeroomTeacher: {
+        url: "/api/director/sections", // Will be combined with `/${sectionId}/homeroom-teacher`
+        method: "PUT"
+    },
+    getAcademicYearConfig: {
+        url: "/api/teacher/academic-year-configs",
+        method: "GET"
+    },
+    getSectionRoster: {
+        url: '/api/teacher/section-roster',
+        method: 'get'
     }
 };
 

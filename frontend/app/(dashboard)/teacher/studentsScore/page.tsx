@@ -4,9 +4,13 @@ import summeryApi from '@/common/summeryApi';
 import Axios from '@/utils/Axios.js';
 
 export default function StudentScoreTablePage() {
-    // Filter states
+    const [allSections, setAllSections] = useState<any[]>([]);
+    const [availableAcademicYears, setAvailableAcademicYears] = useState<{ academicYear: string; gradeLevel: string }[]>([]);
     const [courses, setCourses] = useState<any[]>([]);
     const [sections, setSections] = useState<any[]>([]);
+
+    const [selectedAcademicYear, setSelectedAcademicYear] = useState<string>('');
+    const [selectedTargetGrade, setSelectedTargetGrade] = useState<string>('');
     const [selectedCourseId, setSelectedCourseId] = useState<string>('');
     const [selectedSectionId, setSelectedSectionId] = useState<string>('');
     const [selectedSemester, setSelectedSemester] = useState<string>('semester1');
@@ -15,28 +19,114 @@ export default function StudentScoreTablePage() {
     const [gradeConfig, setGradeConfig] = useState<any>(null);
     const [loading, setLoading] = useState<boolean>(false);
 
-    // Fetch dropdown filter options on mount
+    // 1. Fetch User Details & Class Sections, filtering exclusively for the logged-in teacher's assignments
     useEffect(() => {
-        const fetchFiltersData = async () => {
+        const initializeTeacherData = async () => {
             try {
-                const res = await Axios({
-                    ...summeryApi.getCourseAndSection,
+                // Fetch logged-in teacher details
+                const userRes = await Axios({
+                    ...summeryApi.getUserDetail
                 });
-                if (res.data && res.data.success) {
-                    setCourses(res.data.courses || []);
-                    setSections(res.data.sections || []);
+                const userData = userRes.data?.data || userRes.data;
+
+                const userRole = userData?.role?.toLowerCase();
+                const isAdmin = userRole === 'admin' || userRole === 'superadmin';
+
+                const teacherProfileId = userData?._id;
+                const teacherFullName = userData?.personalInfo?.fullName;
+
+                // Fetch all class sections
+                const sectionRes = await Axios({
+                    ...summeryApi.getAllClassSection
+                });
+                const sectionsData = sectionRes.data?.data || sectionRes.data || [];
+
+                // Filter sections to ONLY include courses assigned to this specific teacher (unless Admin)
+                const teacherSections = sectionsData.map((sec: any) => {
+                    const filteredCourses = sec.courses?.filter((c: any) => {
+                        if (isAdmin) return true;
+
+                        const courseTeacher = c.teacher;
+                        const cTeacherId = typeof courseTeacher === 'string' ? courseTeacher : courseTeacher?._id;
+                        const cTeacherName = courseTeacher?.personalInfo?.fullName;
+
+                        const matchesId = teacherProfileId && cTeacherId === teacherProfileId;
+                        const matchesName = teacherFullName && cTeacherName && 
+                            cTeacherName.toLowerCase().trim() === teacherFullName.toLowerCase().trim();
+
+                        return matchesId || matchesName;
+                    }) || [];
+
+                    return {
+                        ...sec,
+                        courses: filteredCourses
+                    };
+                }).filter((sec: any) => sec.courses.length > 0);
+
+                setAllSections(teacherSections);
+
+                // Extract unique academic years and grade levels from this teacher's courses
+                const yearGradeMap = new Map();
+                teacherSections.forEach((sec: any) => {
+                    const grade = sec.gradeLevel;
+                    sec.courses?.forEach((c: any) => {
+                        const year = c.academicYear;
+                        if (year && grade) {
+                            const key = `${year}-${grade}`;
+                            if (!yearGradeMap.has(key)) {
+                                yearGradeMap.set(key, { academicYear: year, gradeLevel: grade });
+                            }
+                        }
+                    });
+                });
+
+                const uniqueConfigs = Array.from(yearGradeMap.values());
+                setAvailableAcademicYears(uniqueConfigs);
+
+                if (uniqueConfigs.length > 0) {
+                    setSelectedAcademicYear(uniqueConfigs[0].academicYear);
+                    setSelectedTargetGrade(uniqueConfigs[0].gradeLevel);
                 }
             } catch (error) {
-                console.error("Failed to load filter options", error);
+                console.error("Failed to initialize teacher score table filters", error);
             }
         };
 
-        fetchFiltersData();
+        initializeTeacherData();
     }, []);
 
-    // Fetch score table data whenever filters change
+    // 2. Filter courses and sections based on the selected Academic Year & Grade Level
     useEffect(() => {
-        if (!selectedCourseId || !selectedSectionId) {
+        if (!selectedAcademicYear || !selectedTargetGrade || allSections.length === 0) return;
+
+        setSelectedCourseId('');
+        setSelectedSectionId('');
+        setGradeConfig(null);
+
+        // Filter sections matching the target grade and academic year
+        const matchedSections = allSections.filter((sec: any) => {
+            if (sec.gradeLevel !== selectedTargetGrade) return false;
+            return sec.courses?.some((c: any) => c.academicYear === selectedAcademicYear);
+        });
+
+        setSections(matchedSections);
+
+        // Extract unique courses matching the academic year and grade level
+        const courseMap = new Map();
+        matchedSections.forEach((sec: any) => {
+            sec.courses?.forEach((c: any) => {
+                if (c.academicYear === selectedAcademicYear && c.course) {
+                    courseMap.set(c.course._id, c.course);
+                }
+            });
+        });
+
+        setCourses(Array.from(courseMap.values()));
+    }, [selectedAcademicYear, selectedTargetGrade, allSections]);
+
+    // 3. Fetch score table data whenever filters change
+    useEffect(() => {
+        if (!selectedAcademicYear || !selectedCourseId || !selectedSectionId) {
             setGradeConfig(null);
             return;
         }
@@ -47,6 +137,8 @@ export default function StudentScoreTablePage() {
                 const res = await Axios({
                     ...summeryApi.getStudentScoreSheetTable,
                     params: {
+                        academicYear: selectedAcademicYear,
+                        targetGrade: selectedTargetGrade,
                         courseId: selectedCourseId,
                         sectionId: selectedSectionId,
                         semester: selectedSemester
@@ -62,14 +154,49 @@ export default function StudentScoreTablePage() {
         };
 
         fetchScoresTable();
-    }, [selectedCourseId, selectedSectionId, selectedSemester]);
+    }, [selectedAcademicYear, selectedTargetGrade, selectedCourseId, selectedSectionId, selectedSemester]);
+
+    const handleAcademicYearChange = (combinedValue: string) => {
+        const [year, grade] = combinedValue.split('|');
+        setSelectedAcademicYear(year);
+        setSelectedTargetGrade(grade);
+    };
 
     return (
         <div className="p-6 bg-gray-50 min-h-screen space-y-6">
-            <h1 className="text-xl font-semibold text-slate-900 tracking-tight">Student Score Sheet Table</h1>
+            <div className="flex justify-between items-center">
+                <h1 className="text-xl font-semibold text-slate-900 tracking-tight">Student Score Sheet Table</h1>
+                {selectedAcademicYear && (
+                    <div className="flex gap-2">
+                        <span className="px-3 py-1 bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-semibold rounded-full">
+                            Year: {selectedAcademicYear}
+                        </span>
+                        {selectedTargetGrade && (
+                            <span className="px-3 py-1 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-semibold rounded-full">
+                                Grade {selectedTargetGrade}
+                            </span>
+                        )}
+                    </div>
+                )}
+            </div>
 
             {/* Filter Selectors Bar */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Academic Year</label>
+                    <select
+                        value={`${selectedAcademicYear}|${selectedTargetGrade}`}
+                        onChange={(e) => handleAcademicYearChange(e.target.value)}
+                        className="w-full border border-gray-300 rounded-md p-2 text-sm focus:ring-blue-500 focus:border-blue-500"
+                    >
+                        {availableAcademicYears.map((config, index) => (
+                            <option key={index} value={`${config.academicYear}|${config.gradeLevel}`}>
+                                {config.academicYear} (Grade {config.gradeLevel})
+                            </option>
+                        ))}
+                    </select>
+                </div>
+
                 <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Select Course</label>
                     <select
@@ -116,9 +243,9 @@ export default function StudentScoreTablePage() {
             </div>
 
             {/* Content Area */}
-            {!selectedCourseId || !selectedSectionId ? (
+            {!selectedAcademicYear || !selectedCourseId || !selectedSectionId ? (
                 <div className="p-8 text-center bg-white rounded-lg shadow-sm border border-gray-200 text-gray-500">
-                    Please select a course and section above to view the student score sheet.
+                    Please select an academic year, course, and section above to view the student score sheet.
                 </div>
             ) : loading ? (
                 <div className="p-8 text-center bg-white rounded-lg shadow-sm border border-gray-200">
@@ -126,7 +253,7 @@ export default function StudentScoreTablePage() {
                 </div>
             ) : !gradeConfig || !gradeConfig.studentTableData || gradeConfig.studentTableData.length === 0 ? (
                 <div className="p-8 text-center bg-white rounded-lg shadow-sm border border-gray-200 text-gray-500">
-                    No student score records found for this course and section yet.
+                    No student score records found for this selection yet.
                 </div>
             ) : (
                 <div className="bg-white rounded-lg shadow-md p-6 space-y-4">
@@ -142,7 +269,7 @@ export default function StudentScoreTablePage() {
                             <thead className="bg-gray-50">
                                 <tr>
                                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">No</th>
-                                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 ">Student Name</th>
+                                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Student Name</th>
                                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Student ID</th>
                                     
                                     {/* Dynamic Assessment Columns Header */}
@@ -152,9 +279,7 @@ export default function StudentScoreTablePage() {
                                             <span className="block font-normal text-gray-400 text-[10px]">({assessment.maxScore})</span>
                                         </th>
                                     ))}
-
                                     <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600">Total</th>
-                                    
                                 </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">
@@ -172,12 +297,12 @@ export default function StudentScoreTablePage() {
 
                                         {/* Dynamic Assessment Individual Scores */}
                                         {gradeConfig.assessmentsList?.map((assessment: any, idx: number) => (
-                                            <td key={idx} className=" bg-white rounded-lg text-xs outline-none font-mono font-bold text-teal-600 text-center">
+                                            <td key={idx} className="bg-white rounded-lg text-xs outline-none font-mono font-bold text-teal-600 text-center">
                                                 {row.scores[assessment.title] !== undefined ? row.scores[assessment.title] : "-"}
                                             </td>
                                         ))}
 
-                                        <td className="w-24 p-2 bg-white  rounded-lg text-xs outline-none font-mono font-bold text-teal-600 text-center">
+                                        <td className="w-24 p-2 bg-white rounded-lg text-xs outline-none font-mono font-bold text-teal-600 text-center">
                                             {row.totalEarned} / {row.totalMax}
                                         </td>
                                     </tr>

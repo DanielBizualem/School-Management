@@ -12,5 +12,6 @@ router.post("/attendance/:teacherId", authorizeRoles('director'), logTeacherAtte
 router.get("/roster", authorizeRoles('director'), downloadRosterData);
 router.put('/:sectionId/homeroom', protect, authorizeRoles('director'), assignHomeroomTeacher);
 router.get("/get-all-courses",protect, authorizeRoles("director","admin"), getAllCourses);
+router.put("/sections/:sectionId/homeroom-teacher", assignHomeroomTeacher);
 
 export default router;

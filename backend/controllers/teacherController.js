@@ -2,6 +2,8 @@ import { submitStudentMark, getAIStudentEvaluation, registerTeacher} from "../se
 import * as teacherService from "../services/teacherService.js";
 import { StaffProfile } from "../models/staffProfile.js";
 import {CourseGradeConfig} from '../models/CourseGradeConfig.js'
+import {AcademicYearConfig} from '../models/AcademicYearConfig.js'
+import {ClassSection} from '../models/classSection.js'
 
 export const updateStudentGrade = async (req, res) => {
     const { studentId, courseId, sectionId, semester, assessments } = req.body;
@@ -485,5 +487,143 @@ export const getStudentScoreSheetTable = async (req, res) => {
     } catch (error) {
         console.error("Error fetching student score sheet table:", error);
         return res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+export const getAcademicYearConfigs = async(req, res) => {
+    try {
+        const configs = await AcademicYearConfig.find().sort({ createdAt: -1 });
+        return res.status(200).json({
+            success: true,
+            data: configs
+        });
+    } catch (error) {
+        console.error("Error fetching academic year configs:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Internal server error"
+        });
+    }
+}
+
+export const sectionRosterController = async (req, res) => {
+    try {
+        const { academicYear, targetGrade, sectionId, semester } = req.query;
+
+        // 1. Fetch the section and populate students and course references
+        const section = await ClassSection.findById(sectionId)
+            .populate('students', '_id fullName studentID')
+            .populate('courses.course', '_id courseName');
+
+        if (!section) {
+            return res.status(404).json({ success: false, message: "Section not found" });
+        }
+
+        // 2. Extract courses list for this section & academic year
+        const activeCourses = section.courses.filter(c => !academicYear || c.academicYear === academicYear);
+        const coursesList = activeCourses.map(c => ({
+            _id: c.course._id,
+            courseName: c.course.courseName || c.course.name
+        }));
+
+        // 3. Fetch all grade configs for these courses in this section and semester
+        const courseIds = coursesList.map(c => c._id);
+        const gradeConfigs = await CourseGradeConfig.find({
+            section: sectionId,
+            semester: semester,
+            course: { $in: courseIds }
+        });
+
+        // Map courseId -> studentId -> total score out of 100
+        const courseScoresMap = {};
+
+        gradeConfigs.forEach(config => {
+            const courseIdString = config.course.toString();
+            courseScoresMap[courseIdString] = {};
+
+            // Calculate max possible score for this course's assessments
+            const totalMaxScore = config.assessments.reduce((sum, assessment) => sum + assessment.maxScore, 0);
+
+            config.studentScores.forEach(studentScoreRecord => {
+                const studentIdString = studentScoreRecord.student.toString();
+                
+                // Sum earned scores across all assessments for this student in this course
+                const totalEarned = studentScoreRecord.scores.reduce((sum, s) => sum + s.score, 0);
+
+                // Convert/scale to 100% if totalMaxScore > 0
+                let scoreOutOf100 = 0;
+                if (totalMaxScore > 0) {
+                    scoreOutOf100 = (totalEarned / totalMaxScore) * 100;
+                }
+
+                if (!courseScoresMap[courseIdString]) {
+                    courseScoresMap[courseIdString] = {};
+                }
+                courseScoresMap[courseIdString][studentIdString] = scoreOutOf100;
+            });
+        });
+
+        // 4. Build final roster rows per student
+        let rosterRows = section.students.map(student => {
+            const studentIdStr = student._id.toString();
+            const studentCoursesScores = {};
+            let totalScoreSum = 0;
+            let coursesCount = 0;
+
+            coursesList.forEach(course => {
+                const cIdStr = course._id.toString();
+                const score = courseScoresMap[cIdStr]?.[studentIdStr];
+                
+                if (score !== undefined) {
+                    studentCoursesScores[cIdStr] = score;
+                    totalScoreSum += score;
+                    coursesCount++;
+                }
+            });
+
+            const averageScore = coursesCount > 0 ? (totalScoreSum / coursesCount) : 0;
+
+            return {
+                student: {
+                    _id: student._id,
+                    fullName: student.fullName,
+                    studentID: student.studentID
+                },
+                courses: studentCoursesScores,
+                totalScore: totalScoreSum,
+                averageScore: averageScore
+            };
+        });
+
+        // 5. Compute ranks based on performance (averageScore descending)
+        // Create a sorted clone to look up each student's rank correctly
+        const rankedCopy = [...rosterRows].sort((a, b) => b.averageScore - a.averageScore);
+        
+        rosterRows = rosterRows.map(row => {
+            const rank = rankedCopy.findIndex(r => r.student._id.toString() === row.student._id.toString()) + 1;
+            return {
+                ...row,
+                rank // Rank is computed and placed in the object
+            };
+        });
+
+        // 6. Sort final rows alphabetically by student full name (spelling order)
+        rosterRows.sort((a, b) => a.student.fullName.localeCompare(b.student.fullName));
+
+        return res.status(200).json({
+            success: true,
+            data: {
+                academicYear,
+                targetGrade,
+                sectionName: section.sectionName,
+                coursesList,
+                rosterRows,
+                totalStudents: section.students.length
+            }
+        });
+
+    } catch (error) {
+        console.error("Error generating section roster:", error);
+        return res.status(500).json({ success: false, message: "Internal server error" });
     }
 };
