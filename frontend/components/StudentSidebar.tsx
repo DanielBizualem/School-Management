@@ -59,6 +59,7 @@ export default function StudentSidebar() {
         { label: "Transcript", id: "analytics", path: "/student/transcript", icon: FileBadge },
         { label: "Assessment Result", id: "marks", path: "/student/academics", icon: ClipboardList },
         { label: "Payment", id: "payment", path: "/student/payment", icon: Wallet },
+        { label: "Registration", id: "registration", path: "/student/registration", icon: Wallet },
         { label: "Settings", id: "settings", path: "/student/settings", icon: Settings2 }
     ];
     const handleLogout = () => {

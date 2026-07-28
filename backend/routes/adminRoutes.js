@@ -1,5 +1,5 @@
 import express from "express";
-import { registerStudent, registerTeacher, registerDirector, addCourse, createAdmin, getAllStudents, getAdminDetailController, registerCourse, initializeSettings, updateSettings, assignTeacherToSection, getAllClassSections, createClassSection, addTeacherRoleController } from "../controllers/adminController.js";
+import { registerStudent, registerTeacher, registerDirector, addCourse, createAdmin, getAllStudents, getAdminDetailController, registerCourse, initializeSettings, updateSettings, assignTeacherToSection, getAllClassSections, createClassSection, addTeacherRoleController, toggleRegistrationWindow, getRegistrationStatus, approveStudentRegistration, getPendingRegistrations } from "../controllers/adminController.js";
 import { protect, authorizeRoles } from "../middleware/authMiddleware.js";
 import multer from 'multer';
 import { getTeachers, register } from "../controllers/teacherController.js";
@@ -31,12 +31,15 @@ router.get('/getAllTeachers',protect, authorizeRoles('admin','director'), getTea
 router.get('/getAdminDetail', protect, authorizeRoles('admin'),getAdminDetailController)
 router.patch("/updateTeacher",protect,authorizeRoles("admin"), updateTeacher);
 router.post('/assignTeacher',protect,authorizeRoles('admin'),assignTeacherToSection)
-router.post("/registerCourse",protect, authorizeRoles("admin"), addCourse);
+router.post("/registerCourse",protect, authorizeRoles("admin","director"), addCourse);
 router.post("/initializeYear",protect, authorizeRoles("admin"), initializeSettings)
 router.patch("/updateSetting",protect,authorizeRoles("admin"), updateSettings);
 router.get('/getAllClassSection',protect,authorizeRoles('admin','teacher','director'),getAllClassSections)
-router.post('/createClassSection',protect,authorizeRoles('admin'),createClassSection)
+router.post('/createClassSection',protect,authorizeRoles('admin','director'),createClassSection)
 router.post("/add-role", protect, authorizeRoles('admin'), addTeacherRoleController);
 router.post('/createAdmin',protect,authorizeRoles('admin'),createDirector)
-
+router.post("/registration-control", protect, authorizeRoles("admin"), toggleRegistrationWindow);
+router.get("/registration-status", protect, authorizeRoles("admin", "director","student"), getRegistrationStatus);
+router.put("/registration-approve/:registrationId",protect,authorizeRoles('admin'), approveStudentRegistration);
+router.get("/pending-registrations", protect, authorizeRoles("admin", "director"), getPendingRegistrations);
 export default router;

@@ -143,6 +143,38 @@ export const summeryApi = {
     assignSecondaryRole: {
         url: `${baseURL}/api/admin/add-role`,
         method: "POST"
+    },
+    getRegistrationStatus: {
+        url: "/api/admin/registration-status",
+        method: "GET"
+    },
+    toggleRegistration: {
+        url: "/api/admin/registration-control",
+        method: "POST"
+    },
+    submitStudentRegistration: {
+        url: "/api/student/register-grade",
+        method: "POST"
+    },
+    getStudentRegistrations: {
+        url: "/api/student/registrations",
+        method: "GET"
+    },
+    getStudentRegistrationStatus: {
+        url: "/api/student/registration-status",
+        method: "GET"
+    },
+    submitStudentRegistration: {
+        url: "/api/student/register-grade",
+        method: "POST"
+    },
+    getPendingRegistrations: {
+        url: "/api/admin/pending-registrations",
+        method: "GET"
+    },
+    approveStudentRegistration: {
+        url: "/api/admin/registration-approve", // append /:id dynamically when calling
+        method: "PUT"
     }
 };
 

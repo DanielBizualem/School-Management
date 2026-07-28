@@ -6,6 +6,9 @@ import {StaffProfile} from '../models/staffProfile.js'
 import {CourseGradeConfig} from '../models/CourseGradeConfig.js'
 import mongoose from "mongoose";
 import {ParentProfile} from '../models/ParentProfile.js'
+import { AcademicYearConfig } from "../models/AcademicYearConfig.js";
+import { StudentRegistration } from "../models/StudentRegistration.js";
+
 
 export const viewMyDashboard = async (req, res) => {
     // Securely pull the user ID from the validated JWT token payload
@@ -56,10 +59,14 @@ export const getStudentTranscript = async (req, res) => {
     try {
         const userId = req.user.id;
 
-        // 1. Find the student profile and populate existing grades
+        // 1. Find the student profile and explicitly populate nested historical courses
         const profile = await StudentProfile.findOne({ user: userId })
             .populate({
                 path: 'grades.course',
+                select: 'courseName courseCode'
+            })
+            .populate({
+                path: 'academicHistory.grades.course',
                 select: 'courseName courseCode'
             });
 
@@ -70,11 +77,9 @@ export const getStudentTranscript = async (req, res) => {
             });
         }
 
-        // 2. Flexible Course Query (Handles both field name variations and formats)
-        // profile.gradeLevel might be "9th Grade" or "9"
-        const studentGrade = profile.gradeLevel;
-        // Create an alternative version just in case (e.g. extracts number or adds text)
-        const numericGrade = studentGrade.replace(/\D/g, ""); // e.g. "9th Grade" -> "9"
+        // 2. Flexible Course Query
+        const studentGrade = profile.gradeLevel || "";
+        const numericGrade = String(studentGrade).replace(/\D/g, "");
 
         const availableCourses = await Course.find({
             $or: [
@@ -489,3 +494,116 @@ export const getParentProfileById = async (req, res) => {
       });
     }
   }; 
+
+  function getNextGrade(currentGrade) {
+    const match = currentGrade.match(/\d+/);
+    if (!match) return currentGrade; // Fallback if format is different
+    const nextNum = parseInt(match[0], 10) + 1;
+    return `Grade ${nextNum}`;
+}
+
+export const submitStudentRegistration = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { academicYear } = req.body;
+
+        // 1. Find student profile
+        const studentProfile = await StudentProfile.findOne({ user: userId });
+        if (!studentProfile) {
+            return res.status(404).json({ success: false, message: "Student profile not found." });
+        }
+
+        // 2. Find current grade with correct fallback property
+        const currentSection = await ClassSection.findOne({ students: studentProfile._id });
+        const currentGrade = currentSection ? currentSection.gradeLevel : (studentProfile.currentGrade || studentProfile.gradeLevel);
+
+        if (!currentGrade) {
+            return res.status(400).json({ success: false, message: "Could not determine your current grade level." });
+        }
+
+        // 3. Automatically compute the eligible target grade
+        const targetGrade = getNextGrade(currentGrade);
+
+        // 4. Check if registration window is open
+        const config = await AcademicYearConfig.findOne({ 
+            academicYear, 
+            targetGrade, 
+            isRegistrationOpen: true 
+        });
+
+        if (!config) {
+            return res.status(403).json({ 
+                success: false, 
+                message: `Registration is currently closed for your eligible promotion (${targetGrade}) for academic year ${academicYear}.` 
+            });
+        }
+
+        // 5. Check if already registered
+        const existingReg = await StudentRegistration.findOne({ student: studentProfile._id, academicYear });
+        if (existingReg) {
+            return res.status(400).json({ success: false, message: "You have already submitted a registration for this academic year." });
+        }
+
+        // 6. Create registration request
+        const registration = await StudentRegistration.create({
+            student: studentProfile._id,
+            academicYear,
+            targetGrade,
+            status: "Pending"
+        });
+
+        res.status(201).json({
+            success: true,
+            message: `Successfully registered for ${targetGrade} (${academicYear}).`,
+            data: registration
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+export const approveStudentRegistration = async (req, res) => {
+    try {
+        const { registrationId } = req.params;
+
+        const registration = await StudentRegistration.findById(registrationId).populate("student");
+        if (!registration) {
+            return res.status(404).json({ success: false, message: "Registration record not found." });
+        }
+
+        registration.status = "Approved";
+        await registration.save();
+
+        const student = registration.student;
+
+        // 1. Archive current active year data into academicHistory before resetting/updating
+        if (student.gradeLevel) {
+            student.academicHistory.push({
+                academicYear: student.academicYear || "Previous Year",
+                gradeLevel: student.gradeLevel,
+                enrolledSections: student.enrolledSections || [],
+                grades: student.grades || []
+            });
+        }
+
+        // 2. Extract clean numeric string or keep full format from targetGrade (e.g., "Grade 10" -> "10")
+        const gradeMatch = registration.targetGrade.match(/\d+/);
+        const newGradeLevel = gradeMatch ? gradeMatch[0] : registration.targetGrade;
+
+        // 3. Update active profile fields for the new academic year
+        student.gradeLevel = newGradeLevel;
+        student.academicYear = registration.academicYear;
+        student.enrolledSections = []; // Reset sections for the new year assignment
+        student.grades = [];         // Reset active course grades for the new year
+
+        await student.save();
+
+        res.status(200).json({
+            success: true,
+            message: `Registration approved. Student moved to Grade ${newGradeLevel}, and past history was successfully preserved.`,
+            data: student
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};

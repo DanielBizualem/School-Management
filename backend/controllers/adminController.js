@@ -14,6 +14,9 @@ import {SchoolSetting} from "../models/SchoolSetting.js";
 import { ClassSection } from "../models/classSection.js";
 import { StaffProfile } from "../models/staffProfile.js";
 import { DirectorProfile } from "../models/directorProfile.js";
+import { AcademicYearConfig } from "../models/AcademicYearConfig.js";
+import {StudentRegistration} from '../models/StudentRegistration.js'
+
 
 export const registerStudent = async (req, res) => {
     const session = await mongoose.startSession();
@@ -494,3 +497,150 @@ export const addTeacherRoleController = async(req, res) => {
         });
     }
 }
+export const toggleRegistrationWindow = async (req, res) => {
+    try {
+        const { academicYear, targetGrade, isRegistrationOpen } = req.body;
+
+        let config = await AcademicYearConfig.findOne({ academicYear, targetGrade });
+
+        if (!config) {
+            config = await AcademicYearConfig.create({
+                academicYear,
+                targetGrade,
+                isRegistrationOpen
+            });
+        } else {
+            config.isRegistrationOpen = isRegistrationOpen;
+            await config.save();
+        }
+
+        res.status(200).json({
+            success: true,
+            message: `Registration for ${targetGrade} (${academicYear}) is now ${isRegistrationOpen ? "OPEN" : "CLOSED"}.`,
+            data: config
+        });
+    } catch (error) {
+        res.status(500).json({ success: true, message: error.message });
+    }
+};
+export const getRegistrationStatus = async (req, res) => {
+    try {
+        const configs = await AcademicYearConfig.find({});
+        res.status(200).json({ success: true, data: configs });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+function getNextGrade(currentGrade) {
+    const match = currentGrade.match(/\d+/);
+    if (!match) return currentGrade;
+    const nextNum = parseInt(match[0], 10) + 1;
+    return `Grade ${nextNum}`;
+}
+
+export const getStudentRegistrationStatus = async (req, res) => {
+    try {
+        const userId = req.user.id;
+
+        // 1. Find student profile
+        const studentProfile = await StudentProfile.findOne({ user: userId });
+        if (!studentProfile) {
+            return res.status(404).json({ success: false, message: "Student profile not found." });
+        }
+
+        // 2. Determine current grade using correct schema property (gradeLevel)
+        const currentSection = await ClassSection.findOne({ students: studentProfile._id });
+        const currentGrade = currentSection ? currentSection.gradeLevel : (studentProfile.currentGrade || studentProfile.gradeLevel);
+
+        // 3. Gracefully handle brand-new or unassigned students without throwing errors
+        if (!currentGrade) {
+            return res.status(200).json({ 
+                success: true, 
+                currentGrade: null,
+                targetGrade: null,
+                data: [] 
+            });
+        }
+
+        // 4. Compute eligible target grade
+        const targetGrade = getNextGrade(currentGrade);
+
+        // 5. Fetch registration config ONLY for their eligible target grade
+        const configs = await AcademicYearConfig.find({ targetGrade });
+
+        res.status(200).json({ 
+            success: true, 
+            currentGrade,
+            targetGrade,
+            data: configs 
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+export const approveStudentRegistration = async (req, res) => {
+    try {
+        const { registrationId } = req.params;
+
+        const registration = await StudentRegistration.findById(registrationId).populate("student");
+        if (!registration) {
+            return res.status(404).json({ success: false, message: "Registration record not found." });
+        }
+
+        // 1. Mark registration as Approved
+        registration.status = "Approved";
+        await registration.save();
+
+        const student = registration.student;
+
+        // 2. Archive current active academic year data into academicHistory before overwriting
+        if (student.gradeLevel && student.academicYear) {
+            student.academicHistory.push({
+                academicYear: student.academicYear,
+                gradeLevel: student.gradeLevel,
+                enrolledSections: student.enrolledSections,
+                grades: student.grades
+            });
+        }
+
+        // 3. Extract numeric grade from targetGrade string (e.g., "Grade 11" -> "11")
+        const gradeMatch = registration.targetGrade.match(/\d+/);
+        const newGradeLevel = gradeMatch ? gradeMatch[0] : registration.targetGrade;
+
+        // 4. Update active profile fields for the new academic year
+        student.gradeLevel = newGradeLevel;
+        student.academicYear = registration.academicYear;
+        student.enrolledSections = []; // Reset for new year's section assignment
+        student.grades = [];         // Reset active course grades for the new year
+
+        await student.save();
+
+        res.status(200).json({
+            success: true,
+            message: `Registration approved. Student moved to Grade ${newGradeLevel} for ${registration.targetGrade}, and past history was successfully preserved.`,
+            data: student
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+export const getPendingRegistrations = async (req, res) => {
+    try {
+        const registrations = await StudentRegistration.find({ status: "Pending" })
+            .populate({
+                path: "student",
+                select: "fullName studentID gradeLevel gender academicYear"
+            })
+            .sort({ createdAt: -1 });
+
+        res.status(200).json({
+            success: true,
+            data: registrations
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};

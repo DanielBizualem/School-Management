@@ -38,7 +38,24 @@ const studentProfileSchema = new mongoose.Schema({
             score: { type: Number, required: true, default: 0 },
             maxScore: { type: Number, required: true, default: 10 }
         }]
+    }],
+
+    academicHistory: [{
+        academicYear: { type: String, required: true },
+        gradeLevel: { type: String, required: true, enum: ["9", "10", "11", "12"] },
+        enrolledSections: [{ type: mongoose.Schema.Types.ObjectId, ref: "ClassSection" }],
+        grades: [{
+            course: { type: mongoose.Schema.Types.ObjectId, ref: "Course" },
+            semester1Mark: Number,
+            semester2Mark: Number,
+            assessments: [{
+                title: String,
+                score: Number,
+                maxScore: Number
+            }]
+        }]
     }]
+    
 }, { timestamps: true });
 
 

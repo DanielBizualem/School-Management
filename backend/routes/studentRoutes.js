@@ -1,6 +1,7 @@
 import express from "express";
-import {  fileComplaint, viewMyDashboard, getStudentTranscript, getStudentDashboardGrades, getStudentCoursePerformance, getParentProfileById, updateParentProfileById} from "../controllers/studentController.js";
+import {  fileComplaint, viewMyDashboard, getStudentTranscript, getStudentDashboardGrades, getStudentCoursePerformance, getParentProfileById, updateParentProfileById, submitStudentRegistration} from "../controllers/studentController.js";
 import { protect, authorizeRoles } from "../middleware/authMiddleware.js";
+import { getStudentRegistrationStatus } from "../controllers/adminController.js";
 
 
 const router = express.Router();
@@ -15,6 +16,8 @@ router.get("/transcript", protect, authorizeRoles("student"), getStudentTranscri
 router.get('/viewScore/:courseId',protect,authorizeRoles('student'),getStudentCoursePerformance)
 router.get('/parentProfile/:id',protect, authorizeRoles('student'),getParentProfileById)
 router.patch("/updateParentProfile/:id", protect, authorizeRoles('student'), updateParentProfileById);
+router.post("/register-grade", protect, authorizeRoles("student"), submitStudentRegistration);
+router.get("/registration-status", protect, authorizeRoles("student"), getStudentRegistrationStatus);
 
 
 

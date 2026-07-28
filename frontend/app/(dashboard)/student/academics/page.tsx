@@ -28,7 +28,7 @@ export default function StudentAcademicsPage() {
     const [activeSemester, setActiveSemester] = useState<"semester1" | "semester2">("semester1");
     const [performanceLoading, setPerformanceLoading] = useState(false);
 
-    // 1. Initial load: Fetch student transcript/courses list to populate the dropdown
+    // 1. Initial load: Fetch student transcript/courses list from both current profile and academic history to populate the dropdown
     useEffect(() => {
         const fetchInitialData = async () => {
             try {
@@ -36,8 +36,49 @@ export default function StudentAcademicsPage() {
                 const response = await Axios({ ...summeryApi.getTranscript });
                 const profile = response.data?.data?.studentProfile;
 
-                if (profile && profile.grades && profile.grades.length > 0) {
-                    const extractedCourses = profile.grades.map((g: any) => g.course).filter(Boolean);
+                if (profile) {
+                    const courseMap = new Map<string, CourseOption>();
+
+                    // Helper to extract course objects safely
+                    const extractCourses = (gradesList: any[]) => {
+                        if (Array.isArray(gradesList)) {
+                            gradesList.forEach((g) => {
+                                if (g.course && typeof g.course === 'object' && g.course._id) {
+                                    courseMap.set(g.course._id, {
+                                        _id: g.course._id,
+                                        courseName: g.course.courseName || "Unknown Course",
+                                        courseCode: g.course.courseCode || "—"
+                                    });
+                                }
+                            });
+                        }
+                    };
+
+                    // Extract from current active grades
+                    extractCourses(profile.grades);
+
+                    // Extract from historical grades (previous grade levels)
+                    if (Array.isArray(profile.academicHistory)) {
+                        profile.academicHistory.forEach((historyItem: any) => {
+                            extractCourses(historyItem.grades);
+                        });
+                    }
+
+                    // Also fallback to enrolled level courses if provided
+                    const enrolledLevelCourses = response.data?.data?.enrolledLevelCourses;
+                    if (Array.isArray(enrolledLevelCourses)) {
+                        enrolledLevelCourses.forEach((c: any) => {
+                            if (c && c._id) {
+                                courseMap.set(c._id, {
+                                    _id: c._id,
+                                    courseName: c.courseName || "Unknown Course",
+                                    courseCode: c.courseCode || "—"
+                                });
+                            }
+                        });
+                    }
+
+                    const extractedCourses = Array.from(courseMap.values());
                     setCourses(extractedCourses);
                     if (extractedCourses.length > 0) {
                         setSelectedCourseId(extractedCourses[0]._id);
@@ -61,25 +102,21 @@ export default function StudentAcademicsPage() {
             try {
                 setPerformanceLoading(true);
                 
-                // Keep the exact summeryApi route you have configured (e.g., summeryApi.viewScore)
-                // Appending the courseId as a parameter matching your backend setup
                 const response = await Axios({
                     url: `${summeryApi.viewScore.url}/${selectedCourseId}`,
                     method: summeryApi.viewScore.method,
                     params: { semester: activeSemester }
                 });
-                console.log(response.data)
+                
                 const responseData = response.data?.data || response.data;
                 if (responseData) {
                     setTeacherName(responseData.teacherName || "TBA");
                     
-                    // Maps assessments array containing both max scores and actual student scores
                     const rawAssessments = responseData.assessments || [];
                     const formattedAssessments = rawAssessments.map((item: any) => ({
                         _id: item._id,
                         title: item.title,
                         maxScore: item.maxScore,
-                        // Checks for score or nested score structure depending on your updated backend output
                         score: item.score !== undefined ? item.score : (item.obtainedScore ?? undefined)
                     }));
 
