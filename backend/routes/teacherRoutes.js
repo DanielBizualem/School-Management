@@ -5,7 +5,7 @@ import { getMaxScore, getStudentsByCourse, getTeacherCourses, updateStudentGrade
 
 const router = express.Router();
 
-router.use(protect, authorizeRoles("teacher"));
+//router.use(protect, authorizeRoles("teacher"));
 
 router.patch("/update-grade",protect,authorizeRoles('teacher'), updateStudentGrade);
 router.post("/generate-evaluation", generateEvaluationText);
@@ -22,7 +22,7 @@ router.get('/analytics', protect, authorizeRoles('teacher'), getStudentAnalytics
 router.get('/courseSections', protect, authorizeRoles('teacher'), getTeacherCoursesAndSections);
 router.get('/score-sheet-table', protect, authorizeRoles('teacher'), getStudentScoreSheetTable);
 router.get('/academic-year-configs',protect,authorizeRoles('teacher'), getAcademicYearConfigs);
-router.get('/section-roster', protect, authorizeRoles('teacher'), sectionRosterController);
+router.get('/section-roster', protect, authorizeRoles('teacher','director'), sectionRosterController);
 
 
 export default router;

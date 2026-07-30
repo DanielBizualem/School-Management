@@ -5,7 +5,7 @@ import { StudentProfile } from "../models/StudentProfile.js";
 import {ClassSection} from '../models/classSection.js'
 import { Admin } from "../models/adminProfile.js";
 import { User } from "../models/User.js";
-import { StaffProfile } from "../models/StaffProfile.js";
+import { StaffProfile } from "../models/staffProfile.js";
 import {DirectorProfile} from '../models/directorProfile.js'
 
 

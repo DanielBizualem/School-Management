@@ -183,7 +183,15 @@ export const summeryApi = {
     getSectionRoster: {
         url: '/api/teacher/section-roster',
         method: 'get'
-    }
+    },
+    directorAnalytics: {
+        url: '/api/director/studentAnalytics',
+        method: 'GET'
+    },
+    getStudentTranscript: (studentId) => ({
+        url: `/api/director/transcript?studentId=${encodeURIComponent(studentId)}`,
+        method: 'GET'
+    }),
 };
 
 export default summeryApi;
