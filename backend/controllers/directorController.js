@@ -292,6 +292,33 @@ export const getDirectorAnalytics = async (req, res) => {
     }
 };
 
+export const fetchStudentTranscriptData = async (studentId) => {
+    if (!studentId) {
+        throw new Error("Student ID is required.");
+    }
+
+    // Find the student by studentID (adjust query to match your database schema)
+    const student = await StudentProfile.findOne({ studentID: studentId });
+    if (!student) {
+        throw new Error("Student transcript could not be found.");
+    }
+
+    // Fetch the student's academic years, courses, and grades records
+    // (Replace this section with your exact database querying logic for grades/courses)
+    const academicYears = await CourseGradeConfig.find({ student: student._id });
+
+    // Format and return the full transcript structure expected by your frontend
+    return {
+        student: {
+            _id: student._id,
+            fullName: student.fullName,
+            studentID: student.studentID,
+            enrolledYear: student.enrolledYear
+        },
+        academicYears: academicYears || []
+    };
+};
+
 export const getStudentTranscript = async (req, res) => {
     try {
         let rawStudentId = req.query.studentId;

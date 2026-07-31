@@ -16,6 +16,7 @@ import uploadRoutes from "./routes/uploadRoutes.js";
 import userRoute from "./routes/userRoute.js";
 import swaggerUi from "swagger-ui-express";
 import fs from "fs";
+import aiRoutes from './routes/aiRoutes.js'
 
 
 
@@ -33,6 +34,7 @@ app.use("/api/teacher", teacherRoutes);
 app.use("/api/student", studentRoutes);
 app.use('/api/upload', uploadRoutes)
 app.use("/api/user",userRoute)
+app.use("/api/ai",aiRoutes)
 
 
 const PORT = process.env.PORT || 5000;
