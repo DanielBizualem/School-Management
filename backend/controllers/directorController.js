@@ -313,6 +313,8 @@ export const fetchStudentTranscriptData = async (studentId) => {
             _id: student._id,
             fullName: student.fullName,
             studentID: student.studentID,
+            studentPhoto: student.studentPhoto,
+            studentSex: student.gender,
             enrolledYear: student.enrolledYear
         },
         academicYears: academicYears || []
@@ -349,6 +351,20 @@ export const getStudentTranscript = async (req, res) => {
             });
         }
 
+        // Calculate age from studentdob if available
+        let calculatedAge = null;
+        if (student.studentDob) {
+            const dob = new Date(student.studentDob);
+            if (!isNaN(dob.getTime())) {
+                const today = new Date();
+                calculatedAge = today.getFullYear() - dob.getFullYear();
+                const monthDifference = today.getMonth() - dob.getMonth();
+                if (monthDifference < 0 || (monthDifference === 0 && today.getDate() < dob.getDate())) {
+                    calculatedAge--;
+                }
+            }
+        }
+
         const resolvedStudentId = student._id;
 
         // 2. Find all Class Sections where this student is enrolled
@@ -364,6 +380,9 @@ export const getStudentTranscript = async (req, res) => {
                         _id: student._id,
                         fullName: student.fullName,
                         studentID: student.studentID,
+                        studentPhoto: student.studentPhoto,
+                        sex: student.gender,
+                        age: calculatedAge,
                         enrolledYear: student.createdAt || student.enrolledYear
                     },
                     academicYears: []
@@ -480,6 +499,9 @@ export const getStudentTranscript = async (req, res) => {
                     _id: student._id,
                     fullName: student.fullName,
                     studentID: student.studentID,
+                    studentPhoto: student.studentPhoto,
+                    sex: student.gender,
+                    age: calculatedAge,
                     enrolledYear: student.createdAt || student.enrolledYear
                 },
                 academicYears: academicYearsFormatted

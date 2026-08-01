@@ -9,6 +9,8 @@ const userSchema = new mongoose.Schema({
         required: true, 
         enum: ["admin", "director", "teacher", "student"] 
     },
+    resetPasswordOtp: { type: String },
+    resetPasswordExpires: { type: Date },
     isFirstLogin: { type: Boolean, default: true },
     refreshTokens: [{ type: String, select: false }] 
 }, { timestamps: true });

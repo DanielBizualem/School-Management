@@ -1,7 +1,9 @@
-export default function Settings(){
+import ProfileSettings from "@/components/ProfileSetting";
+
+export default function SettingsPage() {
     return (
         <div>
-            Director Settings
+            <ProfileSettings />
         </div>
-    )
-}
+    );
+}   

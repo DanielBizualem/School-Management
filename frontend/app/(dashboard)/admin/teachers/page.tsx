@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from "react";
-import { Loader2, Search, Download, ChevronLeft, ChevronRight, X, Plus, ArrowLeft, Key } from "lucide-react";
+import { Loader2, Search, Download, User, CheckCircle, MapPin, AlertCircle, BookOpen, UserPlus, ChevronLeft, ChevronRight, X, Plus, ArrowLeft, Key, Camera } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import Axios from "@/utils/Axios";
@@ -53,7 +53,18 @@ function RoleBadge({ role }: { role: string }) {
     );
 }
 
-export default function TeacherRegistryPage(): React.JSX.Element {
+function SectionHeader({ icon, title }: { icon: React.ReactNode; title: string }) {
+    return (
+        <div className="flex items-center gap-2.5 mb-5">
+            <div className="w-8 h-8 rounded-lg bg-green-50 text-green-700 flex items-center justify-center shrink-0">
+                {icon}
+            </div>
+            <h4 className="font-semibold text-slate-800 text-sm">{title}</h4>
+        </div>
+    );
+}
+
+export default function TeacherRegistryPage({ onSuccess }: { onSuccess?: () => void }): React.JSX.Element {
     const [teachers, setTeachers] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
@@ -61,59 +72,26 @@ export default function TeacherRegistryPage(): React.JSX.Element {
     const [currentPage, setCurrentPage] = useState(1);
     const [selectedTeacher, setSelectedTeacher] = useState<any>(null);
     const [editStatus, setEditStatus] = useState("Current");
-    const [updatingStatus, setUpdatingStatus] = useState(false);
-    
-    // State for assigning an additional role
-    const [additionalRole, setAdditionalRole] = useState("Director");
-    const [generatedCredentials, setGeneratedCredentials] = useState<{ newID: string; tempPass: string } | null>(null);
-
+    const [showSuccessModal, setShowSuccessModal] = useState(false);
     const [view, setView] = useState("list");
+    const [imagePreview, setImagePreview] = useState<string | null>(null);
+    const [imageError, setImageError] = useState("");
 
     const [formData, setFormData] = useState({
-        fullName: "",
-        teacherID: "",
-        department: "",
-        status: "Current",
-        role: "Teacher",
-        emergencyContactName: "",
-        emergencyContactPhone: "",
-        emergencyContactRelationship: ""
+        personalInfo: { fullName: "", birthday: "", department: "Mathematics", nationality: "", gender: "Male", maritalStatus: "Single", photo: "" },
+        contactAddress: { city: "", phoneNumber: "", email: "", kebele: "" },
+        education: { completionLevel: "" },
+        experience: "",
+        emergencyContact: { fullName: "", city: "", phoneNumber: "", relationship: "" },
+        salary: ""
     });
-    const [submitting, setSubmitting] = useState(false);
-
+    
     const itemsPerPage = 10;
 
     const getAllTeachersAPI = async () => {
         const response = await Axios({
             method: summeryApi.getAllTeachers.method,
             url: summeryApi.getAllTeachers.url
-        });
-        return response.data;
-    };
-
-    const updateTeacherStatusAPI = async (teacherId: string, status: string) => {
-        const response = await Axios({
-            method: summeryApi.updateTeacher?.method || "PUT",
-            url: summeryApi.updateTeacher?.url || "/api/teacher/update-status",
-            data: { teacherId, status }
-        });
-        return response.data;
-    };
-
-    const addRoleAPI = async (teacherId: string, newRole: string) => {
-        const response = await Axios({
-            method: summeryApi.assignSecondaryRole?.method || "POST",
-            url: summeryApi.assignSecondaryRole?.url || "/api/teacher/add-role",
-            data: { teacherId, newRole }
-        });
-        return response.data;
-    };
-
-    const registerTeacherAPI = async (payload: any) => {
-        const response = await Axios({
-            method: summeryApi.registerTeacher.method,
-            url: summeryApi.registerTeacher.url,
-            data: payload
         });
         return response.data;
     };
@@ -139,7 +117,6 @@ export default function TeacherRegistryPage(): React.JSX.Element {
     useEffect(() => {
         if (selectedTeacher) {
             setEditStatus(selectedTeacher.status || "Current");
-            setGeneratedCredentials(null);
         }
     }, [selectedTeacher]);
 
@@ -162,194 +139,368 @@ export default function TeacherRegistryPage(): React.JSX.Element {
         currentPage * itemsPerPage
     );
 
-    const downloadPDF = () => {
+    const downloadPDF = (data: any, credentials?: any) => {
         const doc = new jsPDF();
-        const title = statusFilter === "All" ? "All Teachers List" : `Teachers - ${statusFilter}`;
+        doc.setFontSize(18);
+        doc.text("Teacher Registration Details", 20, 20);
+        doc.setFontSize(12);
+        doc.text(`Full Name: ${data.personalInfo?.fullName || data.fullName || "N/A"}`, 20, 40);
+        doc.text(`Employee ID: ${credentials?.employeeID || data.employeeID || data.teacherID || "N/A"}`, 20, 50);
+        if (credentials?.password) {
+            doc.text(`Generated Password: ${credentials.password}`, 20, 60);
+        }
+        doc.text(`Department: ${data.personalInfo?.department || data.department || "N/A"}`, 20, 70);
+        doc.save(`${(data.personalInfo?.fullName || data.fullName || "teacher").replace(/\s+/g, "_")}_Details.pdf`);
+    };
 
-        doc.text(title, 14, 15);
+    const downloadSingleTeacherPDF = (teacher: any) => {
+        const doc = new jsPDF();
+        doc.setFontSize(18);
+        doc.text("Teacher Profile Report", 20, 20);
+        doc.setFontSize(12);
+        doc.text(`Full Name: ${teacher.fullName || teacher.personalInfo?.fullName || "N/A"}`, 20, 40);
+        doc.text(`Staff ID: ${teacher.employeeID || teacher.teacherID || "N/A"}`, 20, 50);
+        doc.text(`Department: ${teacher.department || teacher.personalInfo?.department || "N/A"}`, 20, 60);
+        doc.text(`Status: ${teacher.status || "Current"}`, 20, 70);
+        doc.text(`Role: ${teacher.role || "Teacher"}`, 20, 80);
+        
+        if (teacher.emergencyContact) {
+            doc.text(`Emergency Contact Name: ${teacher.emergencyContact.fullName || "N/A"}`, 20, 100);
+            doc.text(`Emergency Contact Phone: ${teacher.emergencyContact.phoneNumber || "N/A"}`, 20, 110);
+            doc.text(`Relationship: ${teacher.emergencyContact.relationship || "N/A"}`, 20, 120);
+        }
 
-        const tableData = filteredTeachers.map((t: any, index: number) => [
-            index + 1,
-            t.employeeID || t.teacherID || "N/A",
-            t.fullName || t.personalInfo?.fullName || "N/A",
-            t.department || t.personalInfo?.department || "N/A",
-            t.role || "Teacher",
-            t.status || "Current",
+        doc.save(`${(teacher.fullName || teacher.personalInfo?.fullName || "teacher").replace(/\s+/g, "_")}_Profile.pdf`);
+    };
+
+    const downloadTeacherListPDF = () => {
+        const doc = new jsPDF();
+        doc.setFontSize(18);
+        doc.text("Teacher Registry", 14, 18);
+        doc.setFontSize(10);
+        doc.setTextColor(100);
+        doc.text(`Generated: ${new Date().toLocaleDateString()} • ${filteredTeachers.length} record(s)`, 14, 25);
+
+        const rows = filteredTeachers.map((teacher: any) => [
+            teacher.employeeID || teacher.teacherID || "N/A",
+            teacher.fullName || teacher.personalInfo?.fullName || "N/A",
+            teacher.department || teacher.personalInfo?.department || "N/A",
+            teacher.role || "Teacher",
+            teacher.status || "Current",
         ]);
 
         autoTable(doc, {
-            head: [["No.", "Teacher ID", "Full Name", "Department", "Role", "Status"]],
-            body: tableData,
-            startY: 20,
+            startY: 32,
+            head: [["ID", "Name", "Department", "Role", "Status"]],
+            body: rows,
+            styles: { fontSize: 9 },
+            headStyles: { fillColor: [21, 128, 61] },
         });
 
-        doc.save(`Teachers_List_${statusFilter.replace(/\s+/g, "_")}.pdf`);
+        doc.save(`Teacher_Registry_${new Date().toISOString().slice(0, 10)}.pdf`);
     };
 
-    const handleRegisterSubmit = async (e: React.FormEvent) => {
+    const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setImageError("");
+
+        if (!file.type.startsWith("image/")) {
+            setImageError("Please choose an image file.");
+            return;
+        }
+        if (file.size > 2 * 1024 * 1024) {
+            setImageError("Image must be under 2MB.");
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = () => {
+            const base64 = reader.result as string;
+            setImagePreview(base64);
+            setFormData((prev) => ({
+                ...prev,
+                personalInfo: { ...prev.personalInfo, photo: base64 }
+            }));
+        };
+        reader.onerror = () => setImageError("Couldn't read that image, please try again.");
+        reader.readAsDataURL(file);
+    };
+
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        setLoading(true);
         try {
-            setSubmitting(true);
-            await registerTeacherAPI({
-                fullName: formData.fullName,
-                teacherID: formData.teacherID,
-                department: formData.department,
-                status: formData.status,
-                role: formData.role,
-                emergencyContact: {
-                    fullName: formData.emergencyContactName,
-                    phoneNumber: formData.emergencyContactPhone,
-                    relationship: formData.emergencyContactRelationship
-                }
-            });
-            setFormData({
-                fullName: "",
-                teacherID: "",
-                department: "",
-                status: "Current",
-                role: "Teacher",
-                emergencyContactName: "",
-                emergencyContactPhone: "",
-                emergencyContactRelationship: ""
-            });
-            fetchTeachers();
-            setView("list");
+            const response = await Axios({ ...summeryApi.registerTeacher, data: formData });
+            downloadPDF(formData, response.data?.credentials);
+            setShowSuccessModal(true);
         } catch (error) {
             console.error("Registration failed:", error);
-            alert("Failed to register teacher.");
         } finally {
-            setSubmitting(false);
+            setLoading(false);
         }
     };
+
+    const inputClass = "w-full px-3 py-2.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-green-200 focus:border-green-500 outline-none transition placeholder:text-slate-400";
+    const labelClass = "text-xs font-medium text-slate-500 mb-1.5 block";
+    const required = <span className="text-red-500">*</span>;
 
     if (view === "register") {
         return (
             <div className="flex-1 bg-[#f8fafc] p-8 min-h-screen">
+                {showSuccessModal && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+                        <div className="bg-white p-8 rounded-2xl shadow-xl max-w-sm w-full text-center">
+                            <div className="w-16 h-16 rounded-full bg-green-50 flex items-center justify-center mx-auto mb-4">
+                                <CheckCircle className="w-8 h-8 text-green-600" />
+                            </div>
+                            <h2 className="text-lg font-bold text-slate-900 mb-2">Teacher registered</h2>
+                            <p className="text-slate-500 mb-6 text-sm">Credentials have been downloaded as a PDF.</p>
+                            <button
+                                onClick={() => {
+                                    setShowSuccessModal(false);
+                                    setFormData({
+                                        personalInfo: { fullName: "", birthday: "", department: "Mathematics", nationality: "", gender: "Male", maritalStatus: "Single", photo: "" },
+                                        contactAddress: { city: "", phoneNumber: "", email: "", kebele: "" },
+                                        education: { completionLevel: "" },
+                                        experience: "",
+                                        emergencyContact: { fullName: "", city: "", phoneNumber: "", relationship: "" },
+                                        salary: ""
+                                    });
+                                    setImagePreview(null);
+                                    setImageError("");
+                                    setView("list");
+                                    fetchTeachers();
+                                    onSuccess?.();
+                                }}
+                                className="w-full bg-green-700 text-white py-2.5 rounded-xl font-medium hover:bg-green-800 transition"
+                            >
+                                Return to list
+                            </button>
+                        </div>
+                    </div>
+                )}
+
                 <button
-                    onClick={() => setView("list")}
-                    className="flex items-center gap-2 mb-6 text-slate-600 hover:text-black font-medium"
+                    type="button"
+                    onClick={() => {
+                        setImagePreview(null);
+                        setImageError("");
+                        setView("list");
+                    }}
+                    className="flex items-center gap-1.5 text-sm font-medium text-slate-600 hover:text-slate-900 mb-4 transition"
                 >
-                    <ArrowLeft size={20} /> Back to list
+                    <ArrowLeft size={16} /> Back to list
                 </button>
-                <div className="max-w-2xl mx-auto bg-white border border-slate-200 rounded-2xl p-8 shadow-sm">
-                    <h2 className="text-xl font-bold text-slate-900 mb-6">Register New Staff</h2>
-                    <form onSubmit={handleRegisterSubmit} className="space-y-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-xs font-medium text-slate-600 mb-1">Full Name</label>
+
+                <form onSubmit={handleSubmit} className="space-y-5">
+                    <div>
+                        <h2 className="text-xl font-bold text-slate-900">Register teacher</h2>
+                        <p className="text-sm text-slate-500 mt-1">Fill in the details below to add a new teacher.</p>
+                    </div>
+
+                    <div className="bg-white border border-slate-200 rounded-xl p-6">
+                        <SectionHeader icon={<User size={16} />} title="Personal information" />
+
+                        <div className="flex items-center gap-4 mb-5">
+                            <div className="relative">
+                                <div className="w-20 h-20 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center overflow-hidden">
+                                    {imagePreview ? (
+                                        <img src={imagePreview} alt="Teacher photo preview" className="w-full h-full object-cover" />
+                                    ) : (
+                                        <User size={28} className="text-slate-400" />
+                                    )}
+                                </div>
+                                <label
+                                    htmlFor="teacherPhoto"
+                                    className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-green-700 text-white flex items-center justify-center cursor-pointer hover:bg-green-800 transition"
+                                >
+                                    <Camera size={14} />
+                                </label>
                                 <input
-                                    required
-                                    type="text"
-                                    className="w-full p-2.5 border border-slate-300 rounded-xl text-sm outline-none focus:border-slate-500 bg-white"
-                                    value={formData.fullName}
-                                    onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                                    placeholder="John Doe"
+                                    id="teacherPhoto"
+                                    type="file"
+                                    accept="image/*"
+                                    className="hidden"
+                                    onChange={handleImageChange}
                                 />
                             </div>
                             <div>
-                                <label className="block text-xs font-medium text-slate-600 mb-1">Teacher ID / Employee ID</label>
-                                <input
-                                    required
-                                    type="text"
-                                    className="w-full p-2.5 border border-slate-300 rounded-xl text-sm outline-none focus:border-slate-500 bg-white"
-                                    value={formData.teacherID}
-                                    onChange={(e) => setFormData({ ...formData, teacherID: e.target.value })}
-                                    placeholder="TCH-001"
-                                />
+                                <p className="text-sm font-medium text-slate-700">Profile photo</p>
+                                <p className="text-xs text-slate-400 mt-0.5">JPG or PNG, up to 2MB</p>
+                                {imageError && <p className="text-xs text-red-500 mt-1">{imageError}</p>}
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                             <div>
-                                <label className="block text-xs font-medium text-slate-600 mb-1">Department</label>
+                                <label className={labelClass}>Full name {required}</label>
                                 <input
                                     required
-                                    type="text"
-                                    className="w-full p-2.5 border border-slate-300 rounded-xl text-sm outline-none focus:border-slate-500 bg-white"
-                                    value={formData.department}
-                                    onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                                    placeholder="Computer Science"
+                                    placeholder="e.g. Abebe Kebede"
+                                    className={inputClass}
+                                    onChange={(e) => setFormData({ ...formData, personalInfo: { ...formData.personalInfo, fullName: e.target.value } })}
                                 />
                             </div>
                             <div>
-                                <label className="block text-xs font-medium text-slate-600 mb-1">Role</label>
+                                <label className={labelClass}>Birthday {required}</label>
+                                <input
+                                    type="date"
+                                    required
+                                    className={inputClass}
+                                    onChange={(e) => setFormData({ ...formData, personalInfo: { ...formData.personalInfo, birthday: e.target.value } })}
+                                />
+                            </div>
+                            <div>
+                                <label className={labelClass}>Department</label>
                                 <select
-                                    className="w-full p-2.5 border border-slate-300 rounded-xl text-sm outline-none focus:border-slate-500 bg-white text-slate-700"
-                                    value={formData.role}
-                                    onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                                    className={inputClass}
+                                    onChange={(e) => setFormData({ ...formData, personalInfo: { ...formData.personalInfo, department: e.target.value } })}
                                 >
-                                    <option value="Teacher">Teacher</option>
-                                    <option value="Director">Director</option>
+                                    <option>Mathematics</option>
+                                    <option>Physics</option>
+                                    <option>History</option>
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-xs font-medium text-slate-600 mb-1">Status</label>
+                                <label className={labelClass}>Nationality</label>
+                                <input
+                                    placeholder="e.g. Ethiopian"
+                                    className={inputClass}
+                                    onChange={(e) => setFormData({ ...formData, personalInfo: { ...formData.personalInfo, nationality: e.target.value } })}
+                                />
+                            </div>
+                            <div>
+                                <label className={labelClass}>Gender</label>
                                 <select
-                                    className="w-full p-2.5 border border-slate-300 rounded-xl text-sm outline-none focus:border-slate-500 bg-white text-slate-700"
-                                    value={formData.status}
-                                    onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                                    className={inputClass}
+                                    onChange={(e) => setFormData({ ...formData, personalInfo: { ...formData.personalInfo, gender: e.target.value } })}
                                 >
-                                    <option value="Current">Current</option>
-                                    <option value="Leave">On leave</option>
+                                    <option>Male</option>
+                                    <option>Female</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className={labelClass}>Marital status</label>
+                                <select
+                                    className={inputClass}
+                                    onChange={(e) => setFormData({ ...formData, personalInfo: { ...formData.personalInfo, maritalStatus: e.target.value } })}
+                                >
+                                    <option>Single</option>
+                                    <option>Married</option>
                                 </select>
                             </div>
                         </div>
+                    </div>
 
-                        <div className="pt-4 border-t border-slate-100">
-                            <p className="text-sm font-semibold text-slate-800 mb-3">Emergency Contact</p>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                        <div className="bg-white border border-slate-200 rounded-xl p-6">
+                            <SectionHeader icon={<MapPin size={16} />} title="Contact" />
+                            <div className="space-y-4">
                                 <div>
-                                    <label className="block text-xs font-medium text-slate-600 mb-1">Contact Name</label>
+                                    <label className={labelClass}>City</label>
                                     <input
-                                        type="text"
-                                        className="w-full p-2.5 border border-slate-300 rounded-xl text-sm outline-none focus:border-slate-500 bg-white"
-                                        value={formData.emergencyContactName}
-                                        onChange={(e) => setFormData({ ...formData, emergencyContactName: e.target.value })}
-                                        placeholder="Jane Doe"
+                                        placeholder="e.g. Addis Ababa"
+                                        className={inputClass}
+                                        onChange={(e) => setFormData({ ...formData, contactAddress: { ...formData.contactAddress, city: e.target.value } })}
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-medium text-slate-600 mb-1">Phone Number</label>
+                                    <label className={labelClass}>Phone</label>
                                     <input
-                                        type="text"
-                                        className="w-full p-2.5 border border-slate-300 rounded-xl text-sm outline-none focus:border-slate-500 bg-white"
-                                        value={formData.emergencyContactPhone}
-                                        onChange={(e) => setFormData({ ...formData, emergencyContactPhone: e.target.value })}
-                                        placeholder="+123456789"
+                                        placeholder="09xx xxx xxx"
+                                        className={inputClass}
+                                        onChange={(e) => setFormData({ ...formData, contactAddress: { ...formData.contactAddress, phoneNumber: e.target.value } })}
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-medium text-slate-600 mb-1">Relationship</label>
+                                    <label className={labelClass}>Email</label>
                                     <input
-                                        type="text"
-                                        className="w-full p-2.5 border border-slate-300 rounded-xl text-sm outline-none focus:border-slate-500 bg-white"
-                                        value={formData.emergencyContactRelationship}
-                                        onChange={(e) => setFormData({ ...formData, emergencyContactRelationship: e.target.value })}
-                                        placeholder="Spouse"
+                                        type="email"
+                                        placeholder="name@school.edu"
+                                        className={inputClass}
+                                        onChange={(e) => setFormData({ ...formData, contactAddress: { ...formData.contactAddress, email: e.target.value } })}
+                                    />
+                                </div>
+                                <div>
+                                    <label className={labelClass}>Kebele</label>
+                                    <input
+                                        className={inputClass}
+                                        onChange={(e) => setFormData({ ...formData, contactAddress: { ...formData.contactAddress, kebele: e.target.value } })}
                                     />
                                 </div>
                             </div>
                         </div>
 
-                        <div className="flex justify-end gap-3 pt-6">
-                            <button
-                                type="button"
-                                onClick={() => setView("list")}
-                                className="px-4 py-2 border border-slate-300 text-slate-700 rounded-xl text-sm font-medium hover:bg-slate-50"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                type="submit"
-                                disabled={submitting}
-                                className="flex items-center gap-2 px-5 py-2 bg-black text-white rounded-xl text-sm font-medium hover:bg-slate-800 disabled:opacity-50"
-                            >
-                                {submitting && <Loader2 size={16} className="animate-spin" />}
-                                Save Staff
-                            </button>
+                        <div className="bg-white border border-slate-200 rounded-xl p-6">
+                            <SectionHeader icon={<BookOpen size={16} />} title="Professional" />
+                            <div className="space-y-4">
+                                <div>
+                                    <label className={labelClass}>Education level</label>
+                                    <input
+                                        placeholder="e.g. BSc in Mathematics"
+                                        className={inputClass}
+                                        onChange={(e) => setFormData({ ...formData, education: { completionLevel: e.target.value } })}
+                                    />
+                                </div>
+                                <div>
+                                    <label className={labelClass}>Experience</label>
+                                    <textarea
+                                        rows={3}
+                                        placeholder="Years of teaching experience, previous schools..."
+                                        className={inputClass}
+                                        onChange={(e) => setFormData({ ...formData, experience: e.target.value })}
+                                    />
+                                </div>
+                                <div>
+                                    <label className={labelClass}>Salary (ETB) {required}</label>
+                                    <input
+                                        type="number"
+                                        required
+                                        placeholder="0.00"
+                                        className={inputClass}
+                                        onChange={(e) => setFormData({ ...formData, salary: e.target.value })}
+                                    />
+                                </div>
+                            </div>
                         </div>
-                    </form>
-                </div>
+                    </div>
+
+                    <div className="bg-white border border-slate-200 rounded-xl p-6">
+                        <SectionHeader icon={<AlertCircle size={16} />} title="Emergency contact" />
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <input
+                                placeholder="Full name"
+                                className={inputClass}
+                                onChange={(e) => setFormData({ ...formData, emergencyContact: { ...formData.emergencyContact, fullName: e.target.value } })}
+                            />
+                            <input
+                                placeholder="City"
+                                className={inputClass}
+                                onChange={(e) => setFormData({ ...formData, emergencyContact: { ...formData.emergencyContact, city: e.target.value } })}
+                            />
+                            <input
+                                placeholder="Phone"
+                                className={inputClass}
+                                onChange={(e) => setFormData({ ...formData, emergencyContact: { ...formData.emergencyContact, phoneNumber: e.target.value } })}
+                            />
+                            <input
+                                placeholder="Relationship"
+                                className={inputClass}
+                                onChange={(e) => setFormData({ ...formData, emergencyContact: { ...formData.emergencyContact, relationship: e.target.value } })}
+                            />
+                        </div>
+                    </div>
+
+                    <button
+                        disabled={loading}
+                        className="w-full bg-green-700 text-white py-3 rounded-xl hover:bg-green-800 disabled:opacity-60 transition flex items-center justify-center gap-2 font-medium"
+                    >
+                        {loading ? <Loader2 className="animate-spin" size={18} /> : <UserPlus size={18} />}
+                        {loading ? "Registering..." : "Register teacher"}
+                    </button>
+                </form>
             </div>
         );
     }
@@ -358,17 +509,18 @@ export default function TeacherRegistryPage(): React.JSX.Element {
         <div className="flex-1 bg-[#f8fafc] p-8 min-h-screen">
             <div className="flex justify-between items-center mb-6">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-900">Teachers & Directors</h1>
+                    <h1 className="text-2xl font-bold text-slate-900">Teachers</h1>
                     <p className="text-sm text-slate-500 mt-0.5">
                         {filteredTeachers.length} {filteredTeachers.length === 1 ? "record" : "records"}
                     </p>
                 </div>
                 <div className="flex gap-2">
                     <button
-                        onClick={downloadPDF}
-                        className="flex items-center gap-1.5 px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-xl text-sm font-medium hover:bg-slate-50"
+                        onClick={downloadTeacherListPDF}
+                        disabled={filteredTeachers.length === 0}
+                        className="flex items-center gap-1.5 px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-xl text-sm font-medium hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
                     >
-                        <Download size={16} /> Download PDF
+                        <Download size={16} /> Download
                     </button>
                     <button
                         onClick={() => setView("register")}
@@ -557,101 +709,16 @@ export default function TeacherRegistryPage(): React.JSX.Element {
                             </div>
                         </div>
 
-                        {/* Section to Edit Status (Current or Leave) */}
-                        <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl mb-4">
-                            <h3 className="text-sm font-semibold text-slate-800 mb-2">Update Status</h3>
-                            <div className="flex gap-3 items-end">
-                                <div className="flex-1">
-                                    <label className="block text-xs font-medium text-slate-600 mb-1">Status</label>
-                                    <select
-                                        className="w-full p-2 border border-slate-300 rounded-xl bg-white text-sm outline-none text-slate-700"
-                                        value={editStatus}
-                                        onChange={(e) => setEditStatus(e.target.value)}
-                                    >
-                                        <option value="Current">Current</option>
-                                        <option value="Leave">On leave</option>
-                                    </select>
-                                </div>
-                                <button
-                                    disabled={updatingStatus}
-                                    className="px-4 py-2 bg-black text-white rounded-xl text-sm font-medium hover:bg-slate-800 shrink-0 disabled:opacity-50 flex items-center gap-2"
-                                    onClick={async () => {
-                                        try {
-                                            setUpdatingStatus(true);
-                                            const teacherId = selectedTeacher._id || selectedTeacher.id;
-                                            await updateTeacherStatusAPI(teacherId, editStatus);
-                                            
-                                            // Update local state smoothly
-                                            setSelectedTeacher((prev: any) => ({ ...prev, status: editStatus }));
-                                            await fetchTeachers();
-                                        } catch (err) {
-                                            console.error("Failed to update status:", err);
-                                            alert("Failed to update status.");
-                                        } finally {
-                                            setUpdatingStatus(false);
-                                        }
-                                    }}
-                                >
-                                    {updatingStatus && <Loader2 size={16} className="animate-spin" />}
-                                    Save Status
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* Section to Assign New Role with New ID/Password */}
-                        <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl mb-6">
-                            <h3 className="text-sm font-semibold text-slate-800 mb-2 flex items-center gap-1.5">
-                                <Key size={16} className="text-slate-600" /> Assign Additional Role (Generate New Credentials)
-                            </h3>
-                            <p className="text-xs text-slate-500 mb-4">
-                                This creates a separate login ID and password for the secondary role without deleting the user's current account.
-                            </p>
-
-                            <div className="flex gap-3 items-end">
-                                <div className="flex-1">
-                                    <label className="block text-xs font-medium text-slate-600 mb-1">Select Role to Add</label>
-                                    <select
-                                        className="w-full p-2 border border-slate-300 rounded-xl bg-white text-sm outline-none text-slate-700"
-                                        value={additionalRole}
-                                        onChange={(e) => setAdditionalRole(e.target.value)}
-                                    >
-                                        <option value="Director">Director</option>
-                                        <option value="Teacher">Teacher</option>
-                                    </select>
-                                </div>
-                                <button
-                                    className="px-4 py-2 bg-black text-white rounded-xl text-sm font-medium hover:bg-slate-800 shrink-0"
-                                    onClick={async () => {
-                                        try {
-                                            const teacherId = selectedTeacher._id || selectedTeacher.id;
-                                            const res = await addRoleAPI(teacherId, additionalRole);
-                                            setGeneratedCredentials({
-                                                newID: res?.newID || res?.data?.newID || "DIR-" + Math.floor(1000 + Math.random() * 9000),
-                                                tempPass: res?.tempPass || res?.data?.tempPass || "Pass@1234"
-                                            });
-                                            fetchTeachers();
-                                        } catch (err) {
-                                            alert("Failed to generate credentials for the new role.");
-                                        }
-                                    }}
-                                >
-                                    Generate Credentials
-                                </button>
-                            </div>
-
-                            {generatedCredentials && (
-                                <div className="mt-4 p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-800 space-y-1">
-                                    <p className="font-semibold">Successfully generated new role credentials:</p>
-                                    <p><span className="font-medium">New ID:</span> {generatedCredentials.newID}</p>
-                                    <p><span className="font-medium">Temp Password:</span> {generatedCredentials.tempPass}</p>
-                                </div>
-                            )}
-                        </div>
-
-                        <div className="flex justify-end gap-3">
+                        <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl flex justify-between items-center">
+                            <button
+                                onClick={() => downloadSingleTeacherPDF(selectedTeacher)}
+                                className="flex items-center gap-2 px-4 py-2 bg-green-700 text-white rounded-xl text-sm font-medium hover:bg-green-800 transition"
+                            >
+                                <Download size={16} /> Download PDF
+                            </button>
                             <button
                                 onClick={() => setSelectedTeacher(null)}
-                                className="px-4 py-2 bg-black text-white rounded-xl text-sm font-medium hover:bg-slate-800"
+                                className="px-4 py-2 border border-slate-300 rounded-xl text-sm font-medium hover:bg-slate-100"
                             >
                                 Close
                             </button>

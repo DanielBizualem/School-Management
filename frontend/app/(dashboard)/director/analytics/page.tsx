@@ -11,6 +11,7 @@ import {
   TrendingDown,
   Users,
   ChevronDown,
+  BarChart3,
 } from 'lucide-react';
 
 interface BestClass {
@@ -59,6 +60,8 @@ const COLORS = {
   rose: '#E0546B',
   roseSoft: '#FBE7EA',
 };
+
+const PASS_THRESHOLD = 50;
 
 function Gauge({
   value,
@@ -245,6 +248,61 @@ function CourseRow({
   );
 }
 
+/**
+ * Bar chart row for a single section, showing its passing number
+ * (average score) against the fixed PASS_THRESHOLD.
+ */
+function SectionPassBar({
+  section,
+  maxScore,
+}: {
+  section: BestClass;
+  maxScore: number;
+}) {
+  const passed = section.averageScore >= PASS_THRESHOLD;
+  const accent = passed ? COLORS.emerald : COLORS.rose;
+  const soft = passed ? COLORS.emeraldSoft : COLORS.roseSoft;
+  const widthPct = Math.max(4, Math.min(100, (section.averageScore / Math.max(maxScore, 1)) * 100));
+  const thresholdPct = Math.max(0, Math.min(100, (PASS_THRESHOLD / Math.max(maxScore, 1)) * 100));
+
+  return (
+    <div className="flex items-center gap-3 py-2.5" style={{ borderTop: `1px solid ${COLORS.line}` }}>
+      <div className="flex-none w-28">
+        <p className="text-xs font-semibold truncate" style={{ color: COLORS.ink }}>
+          {section.sectionName}
+        </p>
+        <p className="text-[10px] mt-0.5" style={{ color: COLORS.sub }}>
+          Grade {section.gradeLevel} &middot; {section.totalStudents} students
+        </p>
+      </div>
+
+      <div className="relative flex-1 h-4 rounded-md overflow-hidden" style={{ background: soft }}>
+        <div
+          className="h-full rounded-md"
+          style={{
+            width: `${widthPct}%`,
+            background: accent,
+            transition: 'width 600ms cubic-bezier(0.4,0,0.2,1)',
+          }}
+        />
+        {/* Passing threshold marker */}
+        <div
+          className="absolute top-0 bottom-0 w-px"
+          style={{ left: `${thresholdPct}%`, background: COLORS.ink, opacity: 0.35 }}
+          title={`Passing mark: ${PASS_THRESHOLD}`}
+        />
+      </div>
+
+      <span
+        className="flex-none text-xs font-bold tabular-nums w-14 text-right"
+        style={{ color: accent }}
+      >
+        {section.averageScore.toFixed(1)}
+      </span>
+    </div>
+  );
+}
+
 function Bone({ w, h, radius = 999 }: { w: string | number; h: string | number; radius?: number }) {
   return (
     <div
@@ -297,6 +355,31 @@ function SkeletonListCard() {
           </div>
           <Bone w={96} h={6} />
           <Bone w={32} h={10} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function SkeletonBarCard() {
+  return (
+    <div
+      className="p-6 rounded-2xl"
+      style={{ background: COLORS.card, border: `1px solid ${COLORS.line}` }}
+    >
+      <div className="flex items-center gap-2 mb-4">
+        <Bone w={28} h={28} radius={8} />
+        <Bone w={190} h={14} />
+      </div>
+      {[0, 1, 2, 3].map((i) => (
+        <div
+          key={i}
+          className="flex items-center gap-3 py-2.5"
+          style={{ borderTop: `1px solid ${COLORS.line}` }}
+        >
+          <Bone w={100} h={24} radius={6} />
+          <Bone w="100%" h={16} radius={6} />
+          <Bone w={40} h={10} />
         </div>
       ))}
     </div>
@@ -372,6 +455,13 @@ export default function DirectorAnalyticsPage() {
     };
   }, []);
 
+  const sectionRankings = analytics?.additionalInsights?.sectionRankings ?? [];
+  const sortedSections = [...sectionRankings].sort((a, b) => b.averageScore - a.averageScore);
+  const maxSectionScore = sortedSections.length
+    ? Math.max(100, ...sortedSections.map((s) => s.averageScore))
+    : 100;
+  const passingSectionsCount = sortedSections.filter((s) => s.averageScore >= PASS_THRESHOLD).length;
+
   return (
     <main
       ref={rootRef}
@@ -439,6 +529,7 @@ export default function DirectorAnalyticsPage() {
               <SkeletonGaugeCard />
               <SkeletonGaugeCard />
             </div>
+            <SkeletonBarCard />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <SkeletonListCard />
               <SkeletonListCard />
@@ -532,13 +623,57 @@ export default function DirectorAnalyticsPage() {
                   <SectionEyebrow>Evaluation threshold</SectionEyebrow>
                 </div>
                 <div className="relative" style={{ width: 128, height: 128 }}>
-                  <Gauge value={50} color={COLORS.violet} trackColor={COLORS.violetSoft} />
-                  <GaugeStat value={50} size={128} />
+                  <Gauge value={PASS_THRESHOLD} color={COLORS.violet} trackColor={COLORS.violetSoft} />
+                  <GaugeStat value={PASS_THRESHOLD} size={128} />
                 </div>
                 <p className="text-xs" style={{ color: COLORS.sub }}>
                   Minimum passing mark, scaled configuration
                 </p>
               </div>
+            </div>
+
+            {/* All sections — passing number bar chart */}
+            <div
+              className="p-6 rounded-2xl"
+              style={{ background: COLORS.card, border: `1px solid ${COLORS.line}` }}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center gap-2">
+                  <div
+                    className="w-7 h-7 rounded-lg flex items-center justify-center"
+                    style={{ background: COLORS.amberSoft, color: COLORS.amber }}
+                  >
+                    <BarChart3 size={14} />
+                  </div>
+                  <h2 className="text-sm font-bold" style={{ color: COLORS.ink }}>
+                    All sections &middot; passing number
+                  </h2>
+                </div>
+                {sortedSections.length > 0 && (
+                  <p className="text-xs" style={{ color: COLORS.sub }}>
+                    <span className="font-semibold" style={{ color: COLORS.emerald }}>
+                      {passingSectionsCount}
+                    </span>{' '}
+                    of {sortedSections.length} sections above {PASS_THRESHOLD}
+                  </p>
+                )}
+              </div>
+
+              {sortedSections.length ? (
+                <div>
+                  {sortedSections.map((section) => (
+                    <SectionPassBar
+                      key={section.sectionId}
+                      section={section}
+                      maxScore={maxSectionScore}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm py-8" style={{ color: COLORS.sub }}>
+                  No section data available for this filter.
+                </p>
+              )}
             </div>
 
             {/* Course lists */}

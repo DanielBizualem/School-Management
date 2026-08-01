@@ -192,6 +192,22 @@ export const summeryApi = {
         url: `/api/director/transcript?studentId=${encodeURIComponent(studentId)}`,
         method: 'GET'
     }),
+    aiAgentQuery: {
+        url: `/api/ai/transcript`,
+        method: 'post'
+    },
+    forgotPassword: {
+        url: '/api/auth/forgot-password',
+        method: 'post'
+    },
+    verifyOtp: {
+        url: '/api/auth/verify-otp',
+        method: 'post'
+    },
+    resetPassword: {
+        url: '/api/auth/reset-password',
+        method: 'post'
+    }
 };
 
 export default summeryApi;
