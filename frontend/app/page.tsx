@@ -1,7 +1,10 @@
+import Login from "./login/page";
 
 
 export default function Home(){
   return (
-    <div>Home</div>
+    <div>
+      <Login/>
+    </div>
   )
 }

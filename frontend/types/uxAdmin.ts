@@ -30,7 +30,7 @@ export interface UXCourseItem {
     _id: string;
     courseName: string;
     courseCode: string;
-    gradeLevel: string[];
+    gradeLevels: string[];
 }
 
 export interface UXDepartmentProfile {

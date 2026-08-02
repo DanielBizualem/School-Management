@@ -42,7 +42,7 @@ const studentProfileSchema = new mongoose.Schema({
 
     academicHistory: [{
         academicYear: { type: String, required: true },
-        gradeLevel: { type: String, required: true, enum: ["9", "10", "11", "12"] },
+        gradeLevels: { type: String, required: true, enum: ["9", "10", "11", "12"] },
         enrolledSections: [{ type: mongoose.Schema.Types.ObjectId, ref: "ClassSection" }],
         grades: [{
             course: { type: mongoose.Schema.Types.ObjectId, ref: "Course" },

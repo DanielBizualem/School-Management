@@ -63,6 +63,12 @@ const COLORS = {
 
 const PASS_THRESHOLD = 50;
 
+// Default filter values — these should match the FIRST real <option> in each
+// FilterSelect below (not the "Select..." placeholder). Keep these in sync if
+// you ever reorder or add options.
+const DEFAULT_ACADEMIC_YEAR = '26';
+const DEFAULT_SEMESTER = 'semester1';
+
 function Gauge({
   value,
   max = 100,
@@ -392,8 +398,10 @@ export default function DirectorAnalyticsPage() {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>('');
 
-  const [academicYear, setAcademicYear] = useState<string>('');
-  const [semester, setSemester] = useState<string>('');
+  // Default to the first real option in each filter so the dashboard shows
+  // data immediately on load, instead of an empty "please select" state.
+  const [academicYear, setAcademicYear] = useState<string>(DEFAULT_ACADEMIC_YEAR);
+  const [semester, setSemester] = useState<string>(DEFAULT_SEMESTER);
 
   useEffect(() => {
     if (!academicYear || !semester) {

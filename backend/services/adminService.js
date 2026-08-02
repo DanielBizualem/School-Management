@@ -108,13 +108,13 @@ export const createDirectorAccount = async ({ email }) => {
     return { id: account._id, tempPassword };
 };
 
-export const createNewCourse = async ({ courseName, courseCode, gradeLevel }) => {
-    console.log("DEBUG: Service received:", { courseName, courseCode, gradeLevel });
+export const createNewCourse = async ({ courseName, courseCode, gradeLevels }) => {
+    console.log("DEBUG: Service received:", { courseName, courseCode, gradeLevels });
 
     const newCourse = await Course.create({ 
         courseName,
         courseCode,
-        gradeLevels:gradeLevel
+        gradeLevels:gradeLevels
     });
 
     console.log("DEBUG: Saved Course:", newCourse);

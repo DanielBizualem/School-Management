@@ -146,7 +146,7 @@ export const getAllCourses = async (req, res) => {
         });
     } catch (error) {
         res.status(500).json({ 
-            success: false, 
+            success: false,
             message: "Error fetching courses", 
             error: error.message 
         });
@@ -514,5 +514,97 @@ export const getStudentTranscript = async (req, res) => {
             success: false, 
             message: "Server error while generating transcript" 
         });
+    }
+};
+
+export const updateCourse = async (req, res) => {
+    try {
+        const { courseId, courseName, courseCode, gradeLevels } = req.body;
+
+        if (!courseId || !mongoose.Types.ObjectId.isValid(courseId)) {
+            return res.status(400).json({ success: false, message: "Valid courseId is required." });
+        }
+        if (!courseName?.trim() || !courseCode?.trim() || !Array.isArray(gradeLevels) || gradeLevels.length === 0) {
+            return res.status(400).json({ success: false, message: "courseName, courseCode, and at least one gradeLevel are required." });
+        }
+
+        const existingCourse = await Course.findById(courseId);
+        if (!existingCourse) {
+            return res.status(404).json({ success: false, message: "Course not found." });
+        }
+
+        // Prevent another course from taking this courseCode
+        const duplicate = await Course.findOne({ courseCode: courseCode.trim(), _id: { $ne: courseId } });
+        if (duplicate) {
+            return res.status(409).json({ success: false, message: "Another course already uses this course code." });
+        }
+
+        const previousGrades = existingCourse.gradeLevels || [];
+
+        // findByIdAndUpdate bypasses the 'save' hook, so no duplicate grade pushes
+        const updatedCourse = await Course.findByIdAndUpdate(
+            courseId,
+            { courseName: courseName.trim(), courseCode: courseCode.trim(), gradeLevels },
+            { new: true, runValidators: true }
+        );
+
+        // Manually sync StudentProfile.grades to match the new gradeLevels
+        const addedGrades = gradeLevels.filter(g => !previousGrades.includes(g));
+        const removedGrades = previousGrades.filter(g => !gradeLevels.includes(g));
+
+        if (addedGrades.length > 0) {
+            await StudentProfile.updateMany(
+                { gradeLevel: { $in: addedGrades }, "grades.course": { $ne: updatedCourse._id } },
+                { $push: { grades: { course: updatedCourse._id, semester1Mark: 0, semester2Mark: 0 } } }
+            );
+        }
+
+        if (removedGrades.length > 0) {
+            await StudentProfile.updateMany(
+                { gradeLevel: { $in: removedGrades } },
+                { $pull: { grades: { course: updatedCourse._id } } }
+            );
+        }
+
+        return res.status(200).json({ success: true, message: "Course updated successfully.", data: updatedCourse });
+    } catch (error) {
+        console.error("updateCourse error:", error);
+        return res.status(500).json({ success: false, message: error.message || "Failed to update course." });
+    }
+};
+
+export const deleteCourse = async (req, res) => {
+    try {
+        const { courseId } = req.body;
+
+        if (!courseId || !mongoose.Types.ObjectId.isValid(courseId)) {
+            return res.status(400).json({ success: false, message: "Valid courseId is required." });
+        }
+
+        const course = await Course.findById(courseId);
+        if (!course) {
+            return res.status(404).json({ success: false, message: "Course not found." });
+        }
+
+        await Course.deleteOne({ _id: courseId });
+
+        // Remove this course's grade entries from every student that has it
+        await StudentProfile.updateMany(
+            { "grades.course": courseId },
+            { $pull: { grades: { course: courseId } } }
+        );
+
+        // If ClassSection stores assigned courses (as in your assignments tab),
+        // also strip this course out of any section — uncomment if applicable:
+        // import { ClassSection } from "../models/classSection.js";
+        // await ClassSection.updateMany(
+        //     { "courses.course": courseId },
+        //     { $pull: { courses: { course: courseId } } }
+        // );
+
+        return res.status(200).json({ success: true, message: "Course deleted successfully." });
+    } catch (error) {
+        console.error("deleteCourse error:", error);
+        return res.status(500).json({ success: false, message: error.message || "Failed to delete course." });
     }
 };

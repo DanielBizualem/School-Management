@@ -70,9 +70,9 @@ export const addCourse = async (req, res) => {
     // 1. Add this log to verify what Postman is sending
     console.log("DEBUG: Incoming Request Body:", req.body);
 
-    const { courseName, courseCode, gradeLevel } = req.body;
+    const { courseName, courseCode, gradeLevels } = req.body;
 
-    if (!courseName || !courseCode || !gradeLevel || gradeLevel.length === 0) {
+    if (!courseName || !courseCode || !gradeLevels || gradeLevels.length === 0) {
         return res.status(400).json({ 
             success: false, 
             message: "Missing data. Please provide courseName, courseCode, and gradeLevel." 
@@ -223,10 +223,10 @@ export const getAdminDetailController = async (req, res) => {
 
 export const registerCourse = async (req, res) => {
     try {
-        const { courseName, courseCode, gradeLevel } = req.body;
+        const { courseName, courseCode, gradeLevels } = req.body;
 
         // 1. Basic Validation
-        if (!courseName || !courseCode || !gradeLevel || gradeLevel.length === 0) {
+        if (!courseName || !courseCode || !gradeLevels || gradeLevels.length === 0) {
             return res.status(400).json({ 
                 success: false, 
                 message: "Please provide course name, code, and at least one grade level." 
@@ -248,7 +248,7 @@ export const registerCourse = async (req, res) => {
         const newCourse = await Course.create({
             courseName,
             courseCode,
-            gradeLevel
+            gradeLevels
         });
 
         res.status(201).json({ 

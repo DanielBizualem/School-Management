@@ -1,5 +1,5 @@
 import express from "express";
-import { viewDashboardAnalytics, logTeacherAttendance, downloadRosterData, assignHomeroomTeacher, getDirectorAnalytics, getStudentTranscript } from "../controllers/directorController.js";
+import { viewDashboardAnalytics, logTeacherAttendance, downloadRosterData, assignHomeroomTeacher, getDirectorAnalytics, getStudentTranscript, updateCourse, deleteCourse } from "../controllers/directorController.js";
 import { protect, authorizeRoles } from "../middleware/authMiddleware.js";
 import { getAllCourses } from "../controllers/directorController.js";
 
@@ -13,6 +13,8 @@ router.get("/get-all-courses",protect, authorizeRoles("director","admin"), getAl
 router.put("/sections/:sectionId/homeroom-teacher", assignHomeroomTeacher);
 router.get('/studentAnalytics', protect, authorizeRoles('director'), getDirectorAnalytics);
 router.get('/transcript', protect, authorizeRoles('director', 'admin', 'teacher'), getStudentTranscript);
+router.put("/update", protect, authorizeRoles('director'), updateCourse);
+router.delete("/delete",protect, authorizeRoles('director'), deleteCourse);
 
 
 export default router;

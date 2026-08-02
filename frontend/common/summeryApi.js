@@ -207,6 +207,14 @@ export const summeryApi = {
     resetPassword: {
         url: '/api/auth/reset-password',
         method: 'post'
+    },
+    updateCourse:{
+        url: '/api/director/update',
+        method: 'PATCH'
+    },
+    deleteCourse:{
+        url: 'api/director/delete',
+        method: 'DELETE'
     }
 };
 
