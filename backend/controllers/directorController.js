@@ -394,8 +394,15 @@ export const getStudentTranscript = async (req, res) => {
         const transcriptMap = {};
 
         for (const section of sections) {
+            if (!section.courses || !Array.isArray(section.courses)) continue;
+
             for (const sectionCourse of section.courses) {
-                const courseId = sectionCourse.course?._id || sectionCourse.course;
+                const rawCourse = sectionCourse.course;
+                const courseId = rawCourse?._id || rawCourse;
+                
+                // Skip if courseId is missing to prevent any null reference errors
+                if (!courseId) continue;
+
                 const academicYear = sectionCourse.academicYear;
                 const gradeLevel = section.gradeLevel;
 
@@ -422,24 +429,27 @@ export const getStudentTranscript = async (req, res) => {
 
                     let courseTotalScore = 0;
 
-                    if (gradeConfig) {
-                        const studentScoreRecord = gradeConfig.studentScores?.find(
-                            (s) => s.student.toString() === resolvedStudentId.toString()
-                        );
+                    if (gradeConfig && Array.isArray(gradeConfig.studentScores)) {
+                        const studentScoreRecord = gradeConfig.studentScores.find((s) => {
+                            if (!s || !s.student || !resolvedStudentId) return false;
+                            return s.student.toString() === resolvedStudentId.toString();
+                        });
 
-                        if (studentScoreRecord && studentScoreRecord.scores) {
+                        if (studentScoreRecord && Array.isArray(studentScoreRecord.scores)) {
                             // Sum up scores achieved from assessments for 100% total
                             courseTotalScore = studentScoreRecord.scores.reduce(
-                                (sum, assessment) => sum + (assessment.score || 0),
+                                (sum, assessment) => sum + (assessment?.score || 0),
                                 0
                             );
                         }
                     }
 
-                    transcriptMap[academicYear].semesters[semester][courseId.toString()] = {
+                    const safeCourseIdStr = courseId.toString ? courseId.toString() : String(courseId);
+
+                    transcriptMap[academicYear].semesters[semester][safeCourseIdStr] = {
                         courseId,
-                        courseName: sectionCourse.course?.courseName || "Unknown Course",
-                        courseCode: sectionCourse.course?.courseCode || "",
+                        courseName: rawCourse?.courseName || sectionCourse.courseName || "Unknown Course",
+                        courseCode: rawCourse?.courseCode || sectionCourse.courseCode || "",
                         score: courseTotalScore
                     };
                 }
@@ -464,8 +474,8 @@ export const getStudentTranscript = async (req, res) => {
                 const sem2Score = sem2Item ? sem2Item.score : null;
 
                 let validScores = [];
-                if (sem1Score !== null) validScores.push(sem1Score);
-                if (sem2Score !== null) validScores.push(sem2Score);
+                if (sem1Score !== null && sem1Score !== undefined) validScores.push(sem1Score);
+                if (sem2Score !== null && sem2Score !== undefined) validScores.push(sem2Score);
                 
                 const yearlyAverage = validScores.length > 0 
                     ? validScores.reduce((a, b) => a + b, 0) / validScores.length 
@@ -516,7 +526,6 @@ export const getStudentTranscript = async (req, res) => {
         });
     }
 };
-
 export const updateCourse = async (req, res) => {
     try {
         const { courseId, courseName, courseCode, gradeLevels } = req.body;

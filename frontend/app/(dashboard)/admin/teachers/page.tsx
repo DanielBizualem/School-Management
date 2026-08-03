@@ -120,6 +120,12 @@ export default function TeacherRegistryPage({ onSuccess }: { onSuccess?: () => v
         }
     }, [selectedTeacher]);
 
+    // Reset to page 1 whenever the search query or status filter changes,
+    // so results from a new filter aren't hidden behind a stale page number.
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchQuery, statusFilter]);
+
     const filteredTeachers = Array.isArray(teachers)
         ? teachers.filter((t: any) => {
             const fullName = t.fullName || t.personalInfo?.fullName || "";
@@ -248,10 +254,10 @@ export default function TeacherRegistryPage({ onSuccess }: { onSuccess?: () => v
 
     if (view === "register") {
         return (
-            <div className="flex-1 bg-[#f8fafc] p-8 min-h-screen">
+            <div className="flex-1 bg-[#f8fafc] p-4 sm:p-6 lg:p-8 min-h-screen">
                 {showSuccessModal && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-                        <div className="bg-white p-8 rounded-2xl shadow-xl max-w-sm w-full text-center">
+                        <div className="bg-white p-6 sm:p-8 rounded-2xl shadow-xl max-w-sm w-full text-center">
                             <div className="w-16 h-16 rounded-full bg-green-50 flex items-center justify-center mx-auto mb-4">
                                 <CheckCircle className="w-8 h-8 text-green-600" />
                             </div>
@@ -300,7 +306,7 @@ export default function TeacherRegistryPage({ onSuccess }: { onSuccess?: () => v
                         <p className="text-sm text-slate-500 mt-1">Fill in the details below to add a new teacher.</p>
                     </div>
 
-                    <div className="bg-white border border-slate-200 rounded-xl p-6">
+                    <div className="bg-white border border-slate-200 rounded-xl p-4 sm:p-6">
                         <SectionHeader icon={<User size={16} />} title="Personal information" />
 
                         <div className="flex items-center gap-4 mb-5">
@@ -395,7 +401,7 @@ export default function TeacherRegistryPage({ onSuccess }: { onSuccess?: () => v
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                        <div className="bg-white border border-slate-200 rounded-xl p-6">
+                        <div className="bg-white border border-slate-200 rounded-xl p-4 sm:p-6">
                             <SectionHeader icon={<MapPin size={16} />} title="Contact" />
                             <div className="space-y-4">
                                 <div>
@@ -433,7 +439,7 @@ export default function TeacherRegistryPage({ onSuccess }: { onSuccess?: () => v
                             </div>
                         </div>
 
-                        <div className="bg-white border border-slate-200 rounded-xl p-6">
+                        <div className="bg-white border border-slate-200 rounded-xl p-4 sm:p-6">
                             <SectionHeader icon={<BookOpen size={16} />} title="Professional" />
                             <div className="space-y-4">
                                 <div>
@@ -467,7 +473,7 @@ export default function TeacherRegistryPage({ onSuccess }: { onSuccess?: () => v
                         </div>
                     </div>
 
-                    <div className="bg-white border border-slate-200 rounded-xl p-6">
+                    <div className="bg-white border border-slate-200 rounded-xl p-4 sm:p-6">
                         <SectionHeader icon={<AlertCircle size={16} />} title="Emergency contact" />
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <input
@@ -506,33 +512,33 @@ export default function TeacherRegistryPage({ onSuccess }: { onSuccess?: () => v
     }
 
     return (
-        <div className="flex-1 bg-[#f8fafc] p-8 min-h-screen">
-            <div className="flex justify-between items-center mb-6">
+        <div className="flex-1 bg-[#f8fafc] p-4 sm:p-6 lg:p-8 min-h-screen">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-900">Teachers</h1>
+                    <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Teachers</h1>
                     <p className="text-sm text-slate-500 mt-0.5">
                         {filteredTeachers.length} {filteredTeachers.length === 1 ? "record" : "records"}
                     </p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-col sm:flex-row">
                     <button
                         onClick={downloadTeacherListPDF}
                         disabled={filteredTeachers.length === 0}
-                        className="flex items-center gap-1.5 px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-xl text-sm font-medium hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                        className="flex items-center justify-center gap-1.5 px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-xl text-sm font-medium hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed w-full sm:w-auto"
                     >
                         <Download size={16} /> Download
                     </button>
                     <button
                         onClick={() => setView("register")}
-                        className="flex items-center gap-1.5 px-4 py-2 bg-black text-white rounded-xl text-sm font-medium hover:bg-slate-800"
+                        className="flex items-center justify-center gap-1.5 px-4 py-2 bg-black text-white rounded-xl text-sm font-medium hover:bg-slate-800 w-full sm:w-auto"
                     >
                         <Plus size={16} /> Register new
                     </button>
                 </div>
             </div>
 
-            <div className="flex gap-3 mb-6 justify-end">
-                <div className="relative flex-1 max-w-xs">
+            <div className="flex flex-col sm:flex-row gap-3 mb-6 sm:justify-end">
+                <div className="relative flex-1 sm:max-w-xs">
                     <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                     <input
                         placeholder="Search by name or ID"
@@ -542,7 +548,7 @@ export default function TeacherRegistryPage({ onSuccess }: { onSuccess?: () => v
                     />
                 </div>
                 <select
-                    className="p-2 border border-slate-300 rounded-xl text-sm outline-none w-40 text-slate-700 focus:border-gray-400 bg-white"
+                    className="p-2 border border-slate-300 rounded-xl text-sm outline-none w-full sm:w-40 text-slate-700 focus:border-gray-400 bg-white"
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value)}
                 >
@@ -562,8 +568,8 @@ export default function TeacherRegistryPage({ onSuccess }: { onSuccess?: () => v
                 </div>
             ) : (
                 <>
-                    <div className="border border-slate-200 rounded-xl overflow-hidden bg-white">
-                        <table className="w-full text-left text-sm">
+                    <div className="border border-slate-200 rounded-xl overflow-hidden bg-white overflow-x-auto">
+                        <table className="w-full text-left text-sm min-w-[760px]">
                             <thead className="bg-slate-50 text-slate-500">
                                 <tr>
                                     <th className="px-6 py-3 font-medium w-12">No.</th>
@@ -623,7 +629,7 @@ export default function TeacherRegistryPage({ onSuccess }: { onSuccess?: () => v
                         </table>
                     </div>
 
-                    <div className="flex justify-end items-center mt-6 gap-2 text-sm">
+                    <div className="flex flex-wrap justify-center sm:justify-end items-center mt-6 gap-2 text-sm">
                         <button
                             disabled={currentPage === 1}
                             onClick={() => setCurrentPage((p) => p - 1)}
@@ -646,32 +652,32 @@ export default function TeacherRegistryPage({ onSuccess }: { onSuccess?: () => v
             )}
 
             {selectedTeacher && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl p-8 max-w-2xl w-full shadow-2xl relative max-h-[90vh] overflow-y-auto">
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-3 sm:p-4">
+                    <div className="bg-white rounded-2xl p-5 sm:p-8 max-w-2xl w-full shadow-2xl relative max-h-[90vh] overflow-y-auto">
                         <button
                             onClick={() => setSelectedTeacher(null)}
-                            className="absolute top-6 right-6 p-1 hover:bg-slate-100 rounded-full transition"
+                            className="absolute top-4 right-4 sm:top-6 sm:right-6 p-1 hover:bg-slate-100 rounded-full transition"
                             aria-label="Close"
                         >
                             <X size={24} className="text-slate-500" />
                         </button>
 
-                        <div className="flex items-center gap-4 mb-6">
-                            <div className={`w-14 h-14 rounded-full flex items-center justify-center text-lg font-semibold shrink-0 ${getDeptStyle(selectedTeacher.department || selectedTeacher.personalInfo?.department).avatar}`}>
+                        <div className="flex items-center gap-4 mb-6 pr-8">
+                            <div className={`w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center text-base sm:text-lg font-semibold shrink-0 ${getDeptStyle(selectedTeacher.department || selectedTeacher.personalInfo?.department).avatar}`}>
                                 {getInitials(selectedTeacher.fullName || selectedTeacher.personalInfo?.fullName)}
                             </div>
                             <div>
-                                <h2 className="text-xl font-bold text-slate-900">
+                                <h2 className="text-lg sm:text-xl font-bold text-slate-900">
                                     {selectedTeacher.fullName || selectedTeacher.personalInfo?.fullName}
                                 </h2>
-                                <div className="flex gap-2 mt-1">
+                                <div className="flex flex-wrap gap-2 mt-1">
                                     <StatusBadge status={selectedTeacher.status || "Current"} />
                                     <RoleBadge role={selectedTeacher.role || "Teacher"} />
                                 </div>
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 mb-8">
                             <div className="space-y-3 text-sm">
                                 <p className="text-base font-semibold border-b border-slate-200 pb-2 text-slate-800">
                                     Profile info
@@ -709,16 +715,16 @@ export default function TeacherRegistryPage({ onSuccess }: { onSuccess?: () => v
                             </div>
                         </div>
 
-                        <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl flex justify-between items-center">
+                        <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl flex flex-col sm:flex-row gap-3 sm:justify-between sm:items-center">
                             <button
                                 onClick={() => downloadSingleTeacherPDF(selectedTeacher)}
-                                className="flex items-center gap-2 px-4 py-2 bg-green-700 text-white rounded-xl text-sm font-medium hover:bg-green-800 transition"
+                                className="flex items-center justify-center gap-2 px-4 py-2 bg-green-700 text-white rounded-xl text-sm font-medium hover:bg-green-800 transition w-full sm:w-auto"
                             >
                                 <Download size={16} /> Download PDF
                             </button>
                             <button
                                 onClick={() => setSelectedTeacher(null)}
-                                className="px-4 py-2 border border-slate-300 rounded-xl text-sm font-medium hover:bg-slate-100"
+                                className="px-4 py-2 border border-slate-300 rounded-xl text-sm font-medium hover:bg-slate-100 w-full sm:w-auto"
                             >
                                 Close
                             </button>

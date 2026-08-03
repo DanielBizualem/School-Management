@@ -94,7 +94,7 @@ export default function AssignHomeroomPage() {
 
             {/* Assignment Form Card */}
             <form onSubmit={handleSubmit} className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-5">
-                <h3 className="text-base font-semibold text-slate-900">Assign Teacher to Section</h3>
+                <h3 className="text-md font-semibold text-slate-900 tracking-tight">Assign Teacher to Section</h3>
 
                 {/* Side-by-side Selections */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -146,7 +146,7 @@ export default function AssignHomeroomPage() {
                 <button
                     type="submit"
                     disabled={saving || !selectedSectionId || !selectedTeacherId}
-                    className="w-full py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700 transition disabled:opacity-50 shadow-sm"
+                    className="w-full py-2.5 bg-[#0a2f2b] text-white rounded-lg text-sm font-semibold hover:bg-[#233937] transition disabled:opacity-50 shadow-sm"
                 >
                     {saving ? "Saving assignment..." : "Save Assignment"}
                 </button>

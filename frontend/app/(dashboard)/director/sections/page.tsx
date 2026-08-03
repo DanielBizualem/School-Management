@@ -141,7 +141,7 @@ export default function SectionManagementPage() {
     return (
         <div className="p-8 max-w-4xl mx-auto space-y-6">
             <div className="bg-white p-6 rounded-2xl border border-slate-200/60 shadow-sm">
-                <h1 className="text-xl font-black text-slate-900">Create Section & Assign Students</h1>
+                <h1 className="text-xl font-semibold text-slate-900 tracking-tight">Create Section & Assign Students</h1>
                 <p className="text-xs text-slate-500 mt-1">Choose a grade level to view unassigned students, select members, and save to the section.</p>
             </div>
 

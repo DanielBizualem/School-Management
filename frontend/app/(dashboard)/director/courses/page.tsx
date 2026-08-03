@@ -498,11 +498,11 @@ export default function StandaloneCourseManagementPage(): React.JSX.Element {
                 {/* PAGE HEADER — tabs and "Register course" stay visible on every tab */}
                 <div className="flex flex-col gap-4 border-b border-slate-200 pb-5 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex min-w-0 items-center gap-3">
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-sm shadow-indigo-200 sm:h-11 sm:w-11">
-                            {activeTab === "catalog" ? <BookOpen size={20} /> : <UserCheck size={20} />}
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#0a2f2b] text-white shadow-sm shadow-indigo-200 sm:h-11 sm:w-11">
+                            {activeTab === "catalog" ? <BookOpen className="w-5 h-5 text-teal-300" size={20} /> : <UserCheck size={20} />}
                         </div>
                         <div className="min-w-0">
-                            <h1 className="truncate text-lg font-bold tracking-tight text-slate-900 sm:text-2xl">
+                            <h1 className="text-xl font-semibold text-slate-900 tracking-tight">
                                 {activeTab === "catalog" ? "Course catalog" : "Course & teacher assignments"}
                             </h1>
                             <p className="truncate text-xs text-slate-500 sm:text-sm">
@@ -536,7 +536,7 @@ export default function StandaloneCourseManagementPage(): React.JSX.Element {
                         {/* Always available — registering a course shouldn't require leaving the assignments tab */}
                         <button
                             onClick={openAddModal}
-                            className="inline-flex w-full items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm shadow-indigo-200 transition hover:bg-indigo-700 sm:w-auto"
+                            className="w-full p-2.5 bg-[#0c3a35] text-white font-medium text-sm rounded-lg hover:bg-[#0a2f2b] disabled:opacity-60 disabled:cursor-not-allowed transition flex items-center justify-center gap-2 mt-2"
                         >
                             <Plus size={16} strokeWidth={2.5} />
                             Register course
@@ -792,7 +792,7 @@ export default function StandaloneCourseManagementPage(): React.JSX.Element {
                                                                                 onChange={(e) => handleAssignmentFieldChange(section._id, idx, 'course', e.target.value)}
                                                                                 className="w-full rounded-lg border border-slate-200 bg-white p-2 text-xs font-semibold text-slate-800 outline-none focus:border-indigo-400"
                                                                             >
-                                                                                <option value="">-- Choose Course --</option>
+                                                                                <option value="">Choose Course</option>
                                                                                 {courses.map((c) => (
                                                                                     <option key={c._id} value={c._id}>
                                                                                         {c.courseName} ({c.courseCode})
@@ -813,7 +813,7 @@ export default function StandaloneCourseManagementPage(): React.JSX.Element {
                                                                                 onChange={(e) => handleAssignmentFieldChange(section._id, idx, 'teacher', e.target.value)}
                                                                                 className="w-full rounded-lg border border-slate-200 bg-white p-2 text-xs font-semibold text-slate-800 outline-none focus:border-indigo-400"
                                                                             >
-                                                                                <option value="">-- Choose Teacher --</option>
+                                                                                <option value="">Choose Teacher</option>
                                                                                 {teachers.map((teacher) => {
                                                                                     const teacherName = teacher?.fullName || teacher?.personalInfo?.fullName || teacher._id;
                                                                                     const dept = teacher?.personalInfo?.department ? `(${teacher.personalInfo.department})` : "";
@@ -1142,7 +1142,7 @@ export default function StandaloneCourseManagementPage(): React.JSX.Element {
             {/* REGISTER COURSE MODAL */}
             {isModalOpen && (
                 <div
-                    className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-3 backdrop-blur-sm sm:p-4"
+                    className="fixed inset-0 z-45 flex items-center justify-center bg-slate-900/40 p-3 backdrop-blur-sm sm:p-4"
                     onClick={closeModal}
                 >
                     <div
@@ -1151,7 +1151,7 @@ export default function StandaloneCourseManagementPage(): React.JSX.Element {
                     >
                         <div className="mb-5 flex items-start justify-between gap-3">
                             <div className="min-w-0">
-                                <h3 className="text-base font-bold text-slate-900">
+                                <h3 className="text-base text-slate-900 font-normal">
                                     {editingCourse ? "Edit course" : "Register a course"}
                                 </h3>
                                 <p className="text-xs text-slate-500">
@@ -1211,9 +1211,9 @@ export default function StandaloneCourseManagementPage(): React.JSX.Element {
                                                 type="button"
                                                 key={grade}
                                                 onClick={() => toggleGrade(grade)}
-                                                className={`inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+                                                className={`inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs transition ${
                                                     active
-                                                        ? "bg-indigo-600 text-white"
+                                                        ? "bg-[#0c3a35] text-white"
                                                         : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                                                 }`}
                                             >
@@ -1229,14 +1229,14 @@ export default function StandaloneCourseManagementPage(): React.JSX.Element {
                                 <button
                                     type="button"
                                     onClick={closeModal}
-                                    className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition sm:w-auto"
+                                    className="w-[50%] px-2 py-2.5 bg-white text-black border hover:bg-slate-200 border-slate-200 font-medium text-sm rounded-lg flex items-center justify-center gap-2 mt-2"
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     type="submit"
                                     disabled={submitting}
-                                    className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-5 py-2.5 text-xs font-semibold text-white shadow-sm transition hover:bg-indigo-700 disabled:opacity-50 sm:w-auto"
+                                    className="w-[50%] px-2 py-2.5 bg-[#0c3a35] text-white font-medium text-sm rounded-lg hover:bg-[#0a2f2b] disabled:opacity-60 disabled:cursor-not-allowed transition flex items-center justify-center gap-2 mt-2"
                                 >
                                     {submitting && <Loader2 size={13} className="animate-spin" />}
                                     {submitting

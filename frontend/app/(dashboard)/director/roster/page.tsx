@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import summeryApi from '@/common/summeryApi';
 import Axios from '@/utils/Axios.js';
+import { Download, Loader2, AlertTriangle, FileSpreadsheet, ChevronDown } from 'lucide-react';
 
 interface StudentInfo {
     _id: string;
@@ -11,7 +12,7 @@ interface StudentInfo {
 
 interface RosterStudentRow {
     student: StudentInfo;
-    courses: { [courseId: string]: number }; // courseId -> score out of 100
+    courses: { [courseId: string]: number };
     totalScore: number;
     averageScore: number;
     rank?: number;
@@ -38,37 +39,32 @@ export default function HomeroomRosterPage() {
 
     const [roster, setRoster] = useState<RosterData | null>(null);
     const [loading, setLoading] = useState<boolean>(false);
+    const [isCheckingAuth, setIsCheckingAuth] = useState<boolean>(true);
+    const [isExporting, setIsExporting] = useState<boolean>(false);
     const [hasAccess, setHasAccess] = useState<boolean>(false);
     const [userRoleType, setUserRoleType] = useState<string>('');
 
-    // 1. Fetch User Details & Sections, handling Director/Admin vs Homeroom Teacher permissions
+    // 1. Fetch User Details & Sections
     useEffect(() => {
         const initializeData = async () => {
             try {
-                // Fetch logged-in user profile
-                const userRes = await Axios({
-                    ...summeryApi.getUserDetail
-                });
+                setIsCheckingAuth(true);
+                const userRes = await Axios({ ...summeryApi.getUserDetail });
                 const userData = userRes.data?.data || userRes.data;
 
                 const userRole = userData?.role?.toLowerCase() || '';
                 setUserRoleType(userRole);
-                
-                const isDirectorOrAdmin = userRole === 'director' || userRole === 'admin' || userRole === 'superadmin';
 
+                const isDirectorOrAdmin = userRole === 'director' || userRole === 'admin' || userRole === 'superadmin';
                 const teacherProfileId = userData?._id;
                 const teacherFullName = userData?.personalInfo?.fullName;
 
-                // Fetch all class sections
-                const sectionRes = await Axios({
-                    ...summeryApi.getAllClassSection
-                });
+                const sectionRes = await Axios({ ...summeryApi.getAllClassSection });
                 const sectionsData = sectionRes.data?.data || sectionRes.data || [];
 
                 let accessibleSections = sectionsData;
 
                 if (!isDirectorOrAdmin) {
-                    // Filter sections strictly where this teacher is designated as homeroomTeacher
                     accessibleSections = sectionsData.filter((sec: any) => {
                         const secHomeroom = sec.homeroomTeacher;
                         const hId = typeof secHomeroom === 'string' ? secHomeroom : secHomeroom?._id;
@@ -88,7 +84,6 @@ export default function HomeroomRosterPage() {
 
                 setAllSections(accessibleSections);
 
-                // Extract unique academic years and grade levels from accessible sections
                 const yearGradeMap = new Map();
                 accessibleSections.forEach((sec: any) => {
                     const grade = sec.gradeLevel;
@@ -112,6 +107,8 @@ export default function HomeroomRosterPage() {
                 }
             } catch (error) {
                 console.error("Failed to initialize roster data", error);
+            } finally {
+                setIsCheckingAuth(false);
             }
         };
 
@@ -127,7 +124,6 @@ export default function HomeroomRosterPage() {
 
         const matchedSections = allSections.filter((sec: any) => {
             if (sec.gradeLevel !== selectedTargetGrade) return false;
-            // For Directors/Admins, show all sections for this grade/year even if courses array structure varies
             const isDirectorOrAdmin = userRoleType === 'director' || userRoleType === 'admin' || userRoleType === 'superadmin';
             if (isDirectorOrAdmin) return true;
 
@@ -141,7 +137,7 @@ export default function HomeroomRosterPage() {
         }
     }, [selectedAcademicYear, selectedTargetGrade, allSections, userRoleType]);
 
-    // 3. Fetch consolidated Roster data when Section and Semester change
+    // 3. Fetch consolidated Roster data
     useEffect(() => {
         if (!selectedAcademicYear || !selectedSectionId) {
             setRoster(null);
@@ -178,26 +174,115 @@ export default function HomeroomRosterPage() {
         setSelectedTargetGrade(grade);
     };
 
+    // 4. Download Table as PDF Function
+    const handleDownloadPDF = async () => {
+        if (!roster) return;
+
+        try {
+            setIsExporting(true);
+
+            const { default: jsPDF } = await import('jspdf');
+            const { default: autoTable } = await import('jspdf-autotable');
+
+            const isLandscape = (roster.coursesList?.length || 0) > 3;
+            const doc = new jsPDF({
+                orientation: isLandscape ? 'landscape' : 'portrait',
+                unit: 'mm',
+                format: 'a4'
+            });
+
+            doc.setFontSize(16);
+            doc.setTextColor(30, 41, 59);
+            doc.text(`Section Roster Report - ${roster.sectionName}`, 14, 15);
+
+            doc.setFontSize(10);
+            doc.setTextColor(100);
+            const formattedSem = selectedSemester === 'semester1' ? 'Semester 1' : 'Semester 2';
+            doc.text(
+                `Academic Year: ${roster.academicYear} | Grade: ${roster.targetGrade} | ${formattedSem} | Total Students: ${roster.totalStudents}`,
+                14,
+                22
+            );
+
+            const headers = [
+                ['No', 'Student Name', 'Student ID', ...roster.coursesList.map(c => `${c.courseName} (100%)`), 'Total', 'Avg (%)', 'Rank']
+            ];
+
+            const rows = roster.rosterRows.map((row, idx) => {
+                const courseScores = roster.coursesList.map(c => {
+                    const score = row.courses[c._id];
+                    return score !== undefined ? `${score.toFixed(1)}%` : '-';
+                });
+
+                return [
+                    idx + 1,
+                    row.student?.fullName || 'Unknown Student',
+                    row.student?.studentID || 'N/A',
+                    ...courseScores,
+                    row.totalScore?.toFixed(1) || '0.0',
+                    `${row.averageScore?.toFixed(1) || '0.0'}%`,
+                    row.rank || idx + 1
+                ];
+            });
+
+            autoTable(doc, {
+                startY: 28,
+                head: headers,
+                body: rows,
+                theme: 'striped',
+                headStyles: {
+                    fillColor: [37, 99, 235],
+                    textColor: 255,
+                    fontStyle: 'bold',
+                    fontSize: 8,
+                    halign: 'center'
+                },
+                styles: {
+                    fontSize: 8,
+                    cellPadding: 2.5,
+                    halign: 'center',
+                    valign: 'middle'
+                },
+                columnStyles: {
+                    0: { cellWidth: 10 },
+                    1: { halign: 'left', cellWidth: 'auto' },
+                    2: { halign: 'left', cellWidth: 'auto' },
+                }
+            });
+
+            const fileName = `${roster.sectionName}_Roster_${roster.academicYear}_${selectedSemester}.pdf`;
+            doc.save(fileName);
+        } catch (error) {
+            console.error("Failed to export PDF", error);
+            alert("Error generating PDF document. Please try again.");
+        } finally {
+            setIsExporting(false);
+        }
+    };
+
+    const selectClass = "w-full appearance-none border border-slate-200 bg-slate-50 rounded-lg pl-3 pr-9 py-2.5 text-sm text-slate-800 outline-none transition focus:bg-white focus:ring-2 focus:ring-[#0a2f2b]/20 focus:border-[#0a2f2b]";
+
     return (
-        <div className="p-6 bg-gray-50 min-h-screen space-y-6">
-            <div className="flex justify-between items-center">
+        <div className="p-3 sm:p-6 lg:p-8 bg-slate-50 min-h-screen space-y-6 max-w-7xl mx-auto">
+            {/* Header section */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
-                    <h1 className="text-xl font-semibold text-slate-900 tracking-tight">
+                    <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
                         {userRoleType === 'director' ? 'Director Class Roster Reports' : 'Homeroom Student Roster Sheet'}
                     </h1>
-                    <p className="text-xs text-gray-500 mt-0.5">
-                        {userRoleType === 'director' 
-                            ? 'Select any academic year, grade, and section to view consolidated 100% course evaluations.' 
-                            : 'Consolidated 100% course evaluations for your homeroom section.'}
+                    <p className="text-sm text-slate-500 mt-1">
+                        {userRoleType === 'director'
+                            ? 'Select any academic year, grade, and section to view consolidated evaluations.'
+                            : 'Consolidated evaluations for your homeroom section.'}
                     </p>
                 </div>
                 {selectedAcademicYear && (
-                    <div className="flex gap-2">
-                        <span className="px-3 py-1 bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-semibold rounded-full">
+                    <div className="flex flex-wrap gap-2">
+                        <span className="px-3 py-1 bg-indigo-50 border border-indigo-100 text-indigo-700 text-xs font-semibold rounded-full">
                             Year: {selectedAcademicYear}
                         </span>
                         {selectedTargetGrade && (
-                            <span className="px-3 py-1 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-semibold rounded-full">
+                            <span className="px-3 py-1 bg-emerald-50 border border-emerald-100 text-emerald-700 text-xs font-semibold rounded-full">
                                 Grade {selectedTargetGrade}
                             </span>
                         )}
@@ -205,135 +290,173 @@ export default function HomeroomRosterPage() {
                 )}
             </div>
 
-            {!hasAccess && availableAcademicYears.length === 0 ? (
-                <div className="p-8 text-center bg-amber-50 rounded-lg border border-amber-200 text-amber-800 text-sm">
-                    ⚠️ You do not have permission to view roster reports.
+            {isCheckingAuth ? (
+                /* Skeleton Loader while validating permissions */
+                <div className="space-y-6 animate-pulse">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                        <div className="h-10 bg-slate-100 rounded-lg"></div>
+                        <div className="h-10 bg-slate-100 rounded-lg"></div>
+                        <div className="h-10 bg-slate-100 rounded-lg"></div>
+                    </div>
+                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-4">
+                        <div className="flex justify-between items-center pb-3 border-b border-slate-100">
+                            <div className="space-y-2">
+                                <div className="h-5 w-48 bg-slate-100 rounded"></div>
+                                <div className="h-3 w-24 bg-slate-100 rounded"></div>
+                            </div>
+                            <div className="h-9 w-28 bg-slate-100 rounded-lg"></div>
+                        </div>
+                        <div className="space-y-3">
+                            <div className="h-10 bg-slate-100 rounded"></div>
+                            <div className="h-12 bg-slate-50 rounded"></div>
+                            <div className="h-12 bg-slate-50 rounded"></div>
+                            <div className="h-12 bg-slate-50 rounded"></div>
+                        </div>
+                    </div>
+                </div>
+            ) : !hasAccess ? (
+                <div className="flex flex-col items-center gap-2 p-8 text-center bg-amber-50 rounded-xl border border-amber-200 text-amber-800">
+                    <AlertTriangle size={20} />
+                    <p className="text-sm font-medium">You do not have permission to view roster reports.</p>
                 </div>
             ) : (
                 <>
                     {/* Filter Bar */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-white p-4 sm:p-5 rounded-xl shadow-sm border border-slate-200">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Academic Year & Grade</label>
-                            <select
-                                value={`${selectedAcademicYear}|${selectedTargetGrade}`}
-                                onChange={(e) => handleAcademicYearChange(e.target.value)}
-                                className="w-full border border-gray-300 rounded-md p-2 text-sm focus:ring-blue-500 focus:border-blue-500"
-                            >
-                                {availableAcademicYears.map((config, index) => (
-                                    <option key={index} value={`${config.academicYear}|${config.gradeLevel}`}>
-                                        {config.academicYear} (Grade {config.gradeLevel})
-                                    </option>
-                                ))}
-                            </select>
+                            <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1.5">Academic Year & Grade</label>
+                            <div className="relative">
+                                <select
+                                    value={`${selectedAcademicYear}|${selectedTargetGrade}`}
+                                    onChange={(e) => handleAcademicYearChange(e.target.value)}
+                                    className={selectClass}
+                                >
+                                    {availableAcademicYears.map((config, index) => (
+                                        <option key={index} value={`${config.academicYear}|${config.gradeLevel}`}>
+                                            {config.academicYear} (Grade {config.gradeLevel})
+                                        </option>
+                                    ))}
+                                </select>
+                                <ChevronDown size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                            </div>
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Class Section</label>
-                            <select
-                                value={selectedSectionId}
-                                onChange={(e) => setSelectedSectionId(e.target.value)}
-                                className="w-full border border-gray-300 rounded-md p-2 text-sm focus:ring-blue-500 focus:border-blue-500"
-                            >
-                                <option value="">Choose Section</option>
-                                {homeroomSections.map((sec: any) => (
-                                    <option key={sec._id} value={sec._id}>
-                                        {sec.sectionName}
-                                    </option>
-                                ))}
-                            </select>
+                            <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1.5">Class Section</label>
+                            <div className="relative">
+                                <select
+                                    value={selectedSectionId}
+                                    onChange={(e) => setSelectedSectionId(e.target.value)}
+                                    className={selectClass}
+                                >
+                                    <option value="">Choose Section</option>
+                                    {homeroomSections.map((sec: any) => (
+                                        <option key={sec._id} value={sec._id}>
+                                            {sec.sectionName}
+                                        </option>
+                                    ))}
+                                </select>
+                                <ChevronDown size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                            </div>
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Select Semester</label>
-                            <select
-                                value={selectedSemester}
-                                onChange={(e) => setSelectedSemester(e.target.value)}
-                                className="w-full border border-gray-300 rounded-md p-2 text-sm focus:ring-blue-500 focus:border-blue-500"
-                            >
-                                <option value="semester1">Semester 1</option>
-                                <option value="semester2">Semester 2</option>
-                            </select>
+                            <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1.5">Semester</label>
+                            <div className="relative">
+                                <select
+                                    value={selectedSemester}
+                                    onChange={(e) => setSelectedSemester(e.target.value)}
+                                    className={selectClass}
+                                >
+                                    <option value="semester1">Semester 1</option>
+                                    <option value="semester2">Semester 2</option>
+                                </select>
+                                <ChevronDown size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                            </div>
                         </div>
                     </div>
 
                     {/* Content Area */}
                     {!selectedSectionId ? (
-                        <div className="p-8 text-center bg-white rounded-lg shadow-sm border border-gray-200 text-gray-500">
-                            Please select a section above to view the student roster report.
+                        <div className="flex flex-col items-center gap-2 p-10 text-center bg-white rounded-xl shadow-sm border border-slate-200 text-slate-500">
+                            <FileSpreadsheet size={22} className="text-slate-300" />
+                            <p className="text-sm">Please select a section above to view the student roster report.</p>
                         </div>
                     ) : loading ? (
-                        <div className="p-8 text-center bg-white rounded-lg shadow-sm border border-gray-200">
+                        <div className="flex items-center justify-center gap-2 p-10 text-center bg-white rounded-xl shadow-sm border border-slate-200 text-sm text-slate-400">
+                            <Loader2 size={16} className="animate-spin" />
                             Loading section roster report...
                         </div>
                     ) : !roster || !roster.rosterRows || roster.rosterRows.length === 0 ? (
-                        <div className="p-8 text-center bg-white rounded-lg shadow-sm border border-gray-200 text-gray-500">
-                            No student scores submitted or registered for this section yet.
+                        <div className="flex flex-col items-center gap-2 p-10 text-center bg-white rounded-xl shadow-sm border border-slate-200 text-slate-500">
+                            <FileSpreadsheet size={22} className="text-slate-300" />
+                            <p className="text-sm">No student scores submitted or registered for this section yet.</p>
                         </div>
                     ) : (
-                        <div className="bg-white rounded-lg shadow-md p-6 space-y-4">
-                            <div className="flex justify-between items-center">
-                                <h3 className="text-md font-semibold text-slate-900 tracking-tight">
-                                    Section Roster Report ({roster.sectionName})
-                                </h3>
-                                <span className="text-sm text-gray-600 bg-gray-100 px-3 py-1 rounded-full">
-                                    Total Students: {roster.totalStudents}
-                                </span>
+                        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 sm:p-6 space-y-4">
+                            {/* Table Top Header Bar with PDF Download Button */}
+                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-slate-100 pb-4">
+                                <div>
+                                    <h3 className="text-base font-semibold text-slate-900">
+                                        Student Roster Report — {roster.sectionName}
+                                    </h3>
+                                    <p className="text-xs text-slate-500 mt-0.5">Total Students: {roster.totalStudents}</p>
+                                </div>
+
+                                <button
+                                    onClick={handleDownloadPDF}
+                                    disabled={isExporting}
+                                    className="w-full sm:w-auto flex items-center justify-center gap-2 bg-[#0a2f2b] hover:bg-[#123f3a] active:bg-[#0a2f2b] disabled:opacity-60 disabled:cursor-not-allowed text-white text-xs font-semibold px-4 py-2.5 rounded-lg transition-colors shadow-sm"
+                                >
+                                    {isExporting ? (
+                                        <Loader2 size={14} className="animate-spin" />
+                                    ) : (
+                                        <Download size={14} />
+                                    )}
+                                    {isExporting ? 'Generating PDF...' : 'Download PDF'}
+                                </button>
                             </div>
 
-                            <div className="overflow-x-auto border border-gray-200 rounded-lg">
-                                <table className="min-w-full divide-y divide-gray-200">
-                                    <thead className="bg-gray-50">
+                            {/* Roster Table (scrolls horizontally on smaller screens) */}
+                            <div className="overflow-x-auto border border-slate-200 rounded-xl">
+                                <table className="min-w-[720px] w-full divide-y divide-slate-200">
+                                    <thead className="bg-slate-50">
                                         <tr>
-                                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">No</th>
-                                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Student Name</th>
-                                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Student ID</th>
+                                            <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600">No</th>
+                                            <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600">Student Name</th>
+                                            <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600">Student ID</th>
 
-                                            {/* Dynamic Course Columns */}
                                             {roster.coursesList?.map((course: any, idx: number) => (
-                                                <th key={idx} className="px-4 py-3 text-center text-xs font-semibold text-gray-600">
+                                                <th key={idx} className="px-4 py-3 text-center text-xs font-semibold text-slate-600">
                                                     {course.courseName}
-                                                    <span className="block font-normal text-gray-400 text-[10px]">(100%)</span>
+                                                    <span className="block font-normal text-slate-400 text-[10px]">(100%)</span>
                                                 </th>
                                             ))}
 
-                                            <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600">Total</th>
-                                            <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600">Average (%)</th>
-                                            <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600">Rank</th>
+                                            <th className="px-4 py-3 text-center text-xs font-semibold text-slate-600">Total</th>
+                                            <th className="px-4 py-3 text-center text-xs font-semibold text-slate-600">Average (%)</th>
+                                            <th className="px-4 py-3 text-center text-xs font-semibold text-slate-600">Rank</th>
                                         </tr>
                                     </thead>
-                                    <tbody className="bg-white divide-y divide-gray-200">
+                                    <tbody className="bg-white divide-y divide-slate-100">
                                         {roster.rosterRows.map((row: RosterStudentRow, index: number) => (
-                                            <tr key={index} className="hover:bg-gray-50 transition-colors">
-                                                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                                                    {index + 1}
-                                                </td>
-                                                <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
-                                                    {row.student?.fullName || "Unknown Student"}
-                                                </td>
-                                                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                                                    {row.student?.studentID || "N/A"}
-                                                </td>
+                                            <tr key={index} className="hover:bg-slate-50 transition-colors">
+                                                <td className="px-4 py-3 text-sm text-slate-500">{index + 1}</td>
+                                                <td className="px-4 py-3 text-sm font-medium text-slate-900">{row.student?.fullName || "Unknown Student"}</td>
+                                                <td className="px-4 py-3 text-sm text-slate-500 font-mono">{row.student?.studentID || "N/A"}</td>
 
-                                                {/* Scores per course */}
                                                 {roster.coursesList?.map((course: any, idx: number) => {
                                                     const courseScore = row.courses[course._id];
                                                     return (
-                                                        <td key={idx} className="bg-white rounded-lg text-xs outline-none font-mono font-bold text-teal-600 text-center">
+                                                        <td key={idx} className="px-4 py-3 text-xs font-mono font-bold text-teal-600 text-center">
                                                             {courseScore !== undefined ? `${courseScore.toFixed(1)}%` : "-"}
                                                         </td>
                                                     );
                                                 })}
 
-                                                <td className="px-4 py-3 text-xs outline-none font-mono font-bold text-slate-700 text-center">
-                                                    {row.totalScore?.toFixed(1)}
-                                                </td>
-                                                <td className="px-4 py-3 text-xs outline-none font-mono font-bold text-blue-600 text-center">
-                                                    {row.averageScore?.toFixed(1)}%
-                                                </td>
-                                                <td className="px-4 py-3 whitespace-nowrap text-sm font-bold text-indigo-600 text-center">
-                                                    {row.rank || index + 1}
-                                                </td>
+                                                <td className="px-4 py-3 text-xs font-mono font-bold text-slate-700 text-center">{row.totalScore?.toFixed(1)}</td>
+                                                <td className="px-4 py-3 text-xs font-mono font-bold text-blue-600 text-center">{row.averageScore?.toFixed(1)}%</td>
+                                                <td className="px-4 py-3 text-sm font-bold text-indigo-600 text-center">{row.rank || index + 1}</td>
                                             </tr>
                                         ))}
                                     </tbody>

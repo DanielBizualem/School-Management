@@ -520,10 +520,10 @@ export const sectionRosterController = async (req, res) => {
         }
 
         // 2. Extract courses list for this section & academic year
-        const activeCourses = section.courses.filter(c => !academicYear || c.academicYear === academicYear);
+        const activeCourses = section.courses.filter(c => (!academicYear || c.academicYear === academicYear) && c.course);
         const coursesList = activeCourses.map(c => ({
             _id: c.course._id,
-            courseName: c.course.courseName || c.course.name
+            courseName: c.course.courseName || c.course.name || "Unknown Course"
         }));
 
         // 3. Fetch all grade configs for these courses in this section and semester

@@ -69,6 +69,14 @@ export default function StudentRegistryPage(): React.JSX.Element {
         fetchStudents();
     }, []);
 
+    // Reset to page 1 whenever the search query or grade filter changes.
+    // Without this, staying on e.g. page 3 while filtering down to fewer
+    // pages of results makes paginatedStudents slice past the end of the
+    // filtered array, showing an empty table even though matches exist.
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchQuery, gradeFilter]);
+
     const filteredStudents = Array.isArray(students)
         ? students.filter((s: any) => {
             const matchesGrade = gradeFilter === "All" || s.gradeLevel === gradeFilter;
@@ -107,24 +115,24 @@ export default function StudentRegistryPage(): React.JSX.Element {
     };
 
     return (
-        <div className="flex-1 bg-[#f8fafc] p-8 min-h-screen">
-            <div className="flex justify-between items-center mb-6">
+        <div className="flex-1 bg-[#f8fafc] p-4 sm:p-6 lg:p-8 min-h-screen">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-900">Students</h1>
+                    <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Students</h1>
                     <p className="text-sm text-slate-500 mt-0.5">
                         {filteredStudents.length} {filteredStudents.length === 1 ? "record" : "records"}
                     </p>
                 </div>
                 <button
                     onClick={downloadPDF}
-                    className="flex items-center gap-1.5 px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-xl text-sm font-medium hover:bg-slate-50"
+                    className="flex items-center justify-center gap-1.5 px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-xl text-sm font-medium hover:bg-slate-50 w-full sm:w-auto"
                 >
                     <Download size={16} /> Download PDF
                 </button>
             </div>
 
-            <div className="flex gap-3 mb-6 justify-end">
-                <div className="relative flex-1 max-w-xs">
+            <div className="flex flex-col sm:flex-row gap-3 mb-6 sm:justify-end">
+                <div className="relative flex-1 sm:max-w-xs">
                     <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                     <input
                         placeholder="Search by student ID"
@@ -134,7 +142,7 @@ export default function StudentRegistryPage(): React.JSX.Element {
                     />
                 </div>
                 <select
-                    className="p-2 border border-slate-300 rounded-xl text-sm outline-none w-40 text-slate-700 focus:border-gray-400 bg-white"
+                    className="p-2 border border-slate-300 rounded-xl text-sm outline-none w-full sm:w-40 text-slate-700 focus:border-gray-400 bg-white"
                     value={gradeFilter}
                     onChange={(e) => setGradeFilter(e.target.value)}
                 >
@@ -156,8 +164,8 @@ export default function StudentRegistryPage(): React.JSX.Element {
                 </div>
             ) : (
                 <>
-                    <div className="border border-slate-200 rounded-xl overflow-hidden bg-white">
-                        <table className="w-full text-left text-sm">
+                    <div className="border border-slate-200 rounded-xl overflow-hidden bg-white overflow-x-auto">
+                        <table className="w-full text-left text-sm min-w-[640px]">
                             <thead className="bg-slate-50 text-slate-500">
                                 <tr>
                                     <th className="px-6 py-3 font-medium w-12">No.</th>
@@ -205,7 +213,7 @@ export default function StudentRegistryPage(): React.JSX.Element {
                         </table>
                     </div>
 
-                    <div className="flex justify-end items-center mt-6 gap-2 text-sm">
+                    <div className="flex flex-wrap justify-center sm:justify-end items-center mt-6 gap-2 text-sm">
                         <button
                             disabled={currentPage === 1}
                             onClick={() => setCurrentPage((p) => p - 1)}
@@ -228,22 +236,22 @@ export default function StudentRegistryPage(): React.JSX.Element {
             )}
 
             {selectedStudent && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl p-8 max-w-2xl w-full shadow-2xl relative">
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-3 sm:p-4">
+                    <div className="bg-white rounded-2xl p-5 sm:p-8 max-w-2xl w-full shadow-2xl relative max-h-[90vh] overflow-y-auto">
                         <button
                             onClick={() => setSelectedStudent(null)}
-                            className="absolute top-6 right-6 p-1 hover:bg-slate-100 rounded-full transition"
+                            className="absolute top-4 right-4 sm:top-6 sm:right-6 p-1 hover:bg-slate-100 rounded-full transition"
                             aria-label="Close"
                         >
                             <X size={24} className="text-slate-500" />
                         </button>
 
-                        <div className="flex items-center gap-4 mb-6">
-                            <div className={`w-14 h-14 rounded-full flex items-center justify-center text-lg font-semibold shrink-0 ${getGradeStyle(selectedStudent.gradeLevel).avatar}`}>
+                        <div className="flex items-center gap-4 mb-6 pr-8">
+                            <div className={`w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center text-base sm:text-lg font-semibold shrink-0 ${getGradeStyle(selectedStudent.gradeLevel).avatar}`}>
                                 {getInitials(selectedStudent.fullName)}
                             </div>
                             <div>
-                                <h2 className="text-xl font-bold text-slate-900">{selectedStudent.fullName}</h2>
+                                <h2 className="text-lg sm:text-xl font-bold text-slate-900">{selectedStudent.fullName}</h2>
                                 <span className={`inline-block mt-1 px-2.5 py-1 rounded-full text-xs font-medium ${getGradeStyle(selectedStudent.gradeLevel).bg} ${getGradeStyle(selectedStudent.gradeLevel).text}`}>
                                     {selectedStudent.gradeLevel || "N/A"}
                                 </span>
@@ -285,13 +293,13 @@ export default function StudentRegistryPage(): React.JSX.Element {
                                 </p>
                             </div>
 
-                            <div className="flex flex-col gap-4 items-center">
+                            <div className="flex flex-row md:flex-col gap-4 justify-center md:justify-start items-center">
                                 <div className="text-center">
                                     <p className="text-xs font-semibold mb-1 text-slate-500">Student</p>
                                     <img
                                         src={selectedStudent.studentPhoto || "/placeholder-student.jpg"}
                                         alt="Student"
-                                        className="w-32 h-32 rounded-lg object-cover border border-slate-200"
+                                        className="w-24 h-24 sm:w-32 sm:h-32 rounded-lg object-cover border border-slate-200"
                                     />
                                 </div>
                                 <div className="text-center">
@@ -299,7 +307,7 @@ export default function StudentRegistryPage(): React.JSX.Element {
                                     <img
                                         src={selectedStudent.parentPhoto || "/placeholder-parent.jpg"}
                                         alt="Parent"
-                                        className="w-32 h-32 rounded-lg object-cover border border-slate-200"
+                                        className="w-24 h-24 sm:w-32 sm:h-32 rounded-lg object-cover border border-slate-200"
                                     />
                                 </div>
                             </div>

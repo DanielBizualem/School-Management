@@ -138,7 +138,7 @@ function GaugeStat({
       className="absolute inset-0 flex flex-col items-center justify-center"
       style={{ color: COLORS.ink }}
     >
-      <span className={big ? 'text-3xl font-bold tracking-tight' : 'text-xl font-bold tracking-tight'}>
+      <span className={big ? 'text-2xl sm:text-3xl font-bold tracking-tight' : 'text-xl font-bold tracking-tight'}>
         {value.toFixed(1)}
         <span className="text-sm font-semibold align-top ml-0.5" style={{ color: COLORS.sub }}>
           {suffix}
@@ -171,7 +171,7 @@ function FilterSelect({
   children: React.ReactNode;
 }) {
   return (
-    <div>
+    <div className="w-full sm:w-auto">
       <label
         className="block text-[10px] font-semibold uppercase tracking-[0.12em] mb-1.5"
         style={{ color: COLORS.sub }}
@@ -182,7 +182,7 @@ function FilterSelect({
         <select
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="appearance-none pl-3 pr-8 py-2 text-sm font-medium rounded-lg outline-none cursor-pointer"
+          className="w-full sm:w-auto appearance-none pl-3 pr-8 py-2 text-sm font-medium rounded-lg outline-none cursor-pointer"
           style={{
             color: COLORS.ink,
             background: COLORS.paper,
@@ -216,7 +216,7 @@ function CourseRow({
   const metricValue = good ? course.passRate : 100 - course.passRate;
 
   return (
-    <div className="flex items-center gap-3 py-3" style={{ borderTop: `1px solid ${COLORS.line}` }}>
+    <div className="flex items-center gap-2 sm:gap-3 py-3" style={{ borderTop: `1px solid ${COLORS.line}` }}>
       <span
         className="flex-none w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold"
         style={{ background: soft, color: accent }}
@@ -228,14 +228,14 @@ function CourseRow({
         <p className="text-sm font-semibold truncate" style={{ color: COLORS.ink }}>
           {course.courseName}
         </p>
-        <p className="text-xs mt-0.5" style={{ color: COLORS.sub }}>
+        <p className="text-xs mt-0.5 truncate" style={{ color: COLORS.sub }}>
           {good
             ? `${course.passCount} of ${course.totalEvaluated} passed`
             : `${course.failCount} of ${course.totalEvaluated} failed`}
         </p>
       </div>
 
-      <div className="flex-none w-24">
+      <div className="hidden xs:block flex-none w-14 sm:w-24">
         <div className="h-1.5 w-full rounded-full overflow-hidden" style={{ background: soft }}>
           <div
             className="h-full rounded-full"
@@ -245,7 +245,7 @@ function CourseRow({
       </div>
 
       <span
-        className="flex-none text-xs font-bold tabular-nums w-12 text-right"
+        className="flex-none text-xs font-bold tabular-nums w-10 sm:w-12 text-right"
         style={{ color: accent }}
       >
         {good ? `${course.passRate.toFixed(0)}%` : course.failCount}
@@ -272,13 +272,13 @@ function SectionPassBar({
   const thresholdPct = Math.max(0, Math.min(100, (PASS_THRESHOLD / Math.max(maxScore, 1)) * 100));
 
   return (
-    <div className="flex items-center gap-3 py-2.5" style={{ borderTop: `1px solid ${COLORS.line}` }}>
-      <div className="flex-none w-28">
+    <div className="flex items-center gap-2 sm:gap-3 py-2.5" style={{ borderTop: `1px solid ${COLORS.line}` }}>
+      <div className="flex-none w-20 sm:w-28">
         <p className="text-xs font-semibold truncate" style={{ color: COLORS.ink }}>
           {section.sectionName}
         </p>
-        <p className="text-[10px] mt-0.5" style={{ color: COLORS.sub }}>
-          Grade {section.gradeLevel} &middot; {section.totalStudents} students
+        <p className="text-[10px] mt-0.5 truncate" style={{ color: COLORS.sub }}>
+          G{section.gradeLevel} &middot; {section.totalStudents} std
         </p>
       </div>
 
@@ -300,7 +300,7 @@ function SectionPassBar({
       </div>
 
       <span
-        className="flex-none text-xs font-bold tabular-nums w-14 text-right"
+        className="flex-none text-xs font-bold tabular-nums w-10 sm:w-14 text-right"
         style={{ color: accent }}
       >
         {section.averageScore.toFixed(1)}
@@ -327,7 +327,7 @@ function Bone({ w, h, radius = 999 }: { w: string | number; h: string | number; 
 function SkeletonGaugeCard() {
   return (
     <div
-      className="p-6 rounded-2xl flex flex-col items-center text-center gap-4"
+      className="p-4 sm:p-6 rounded-2xl flex flex-col items-center text-center gap-4"
       style={{ background: COLORS.card, border: `1px solid ${COLORS.line}` }}
     >
       <Bone w={150} h={12} />
@@ -341,7 +341,7 @@ function SkeletonGaugeCard() {
 function SkeletonListCard() {
   return (
     <div
-      className="p-6 rounded-2xl"
+      className="p-4 sm:p-6 rounded-2xl"
       style={{ background: COLORS.card, border: `1px solid ${COLORS.line}` }}
     >
       <div className="flex items-center gap-2 mb-4">
@@ -370,7 +370,7 @@ function SkeletonListCard() {
 function SkeletonBarCard() {
   return (
     <div
-      className="p-6 rounded-2xl"
+      className="p-4 sm:p-6 rounded-2xl"
       style={{ background: COLORS.card, border: `1px solid ${COLORS.line}` }}
     >
       <div className="flex items-center gap-2 mb-4">
@@ -473,7 +473,7 @@ export default function DirectorAnalyticsPage() {
   return (
     <main
       ref={rootRef}
-      className="min-h-screen p-3 md:p-2"
+      className="min-h-screen p-3 sm:p-4 md:p-6"
       style={{ background: COLORS.paper }}
     >
       <style>{`
@@ -482,30 +482,31 @@ export default function DirectorAnalyticsPage() {
           100% { background-position: 0 0; }
         }
       `}</style>
-      <div className="max-w-7xl mx-auto space-y-6">
+      <div className="max-w-7xl mx-auto space-y-4 sm:space-y-6">
         {/* Header */}
         <div
-          className="flex flex-col md:flex-row justify-between items-start md:items-center p-6 rounded-2xl gap-4"
+          className="flex flex-col md:flex-row justify-between items-start md:items-center p-4 sm:p-6 rounded-2xl gap-4"
           style={{ background: COLORS.card, border: `1px solid ${COLORS.line}` }}
         >
           <div className="flex items-center gap-3">
             <div
-              className="w-11 h-11 rounded-xl flex items-center justify-center flex-none"
+              className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl flex items-center justify-center flex-none"
               style={{ background: COLORS.azureSoft, color: COLORS.azure }}
             >
-              <GraduationCap size={22} />
+              <GraduationCap size={20} className="sm:hidden" />
+              <GraduationCap size={22} className="hidden sm:block" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold" style={{ color: COLORS.ink }}>
+              <h1 className="text-lg sm:text-xl font-semibold tracking-tight" style={{ color: COLORS.ink }}>
                 Director&rsquo;s Academic Dashboard
               </h1>
-              <p className="text-sm mt-0.5" style={{ color: COLORS.sub }}>
+              <p className="text-xs sm:text-sm mt-0.5" style={{ color: COLORS.sub }}>
                 Institutional performance across class sections and courses
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="grid grid-cols-2 sm:flex sm:items-center gap-3 w-full md:w-auto">
             <FilterSelect label="Academic Year" value={academicYear} onChange={setAcademicYear}>
               <option value="">Select year</option>
               <option value="26">2026</option>
@@ -522,7 +523,7 @@ export default function DirectorAnalyticsPage() {
 
         {!ready ? (
           <div
-            className="flex flex-col items-center justify-center gap-2 py-24 rounded-2xl"
+            className="flex flex-col items-center justify-center gap-2 py-16 sm:py-24 px-4 rounded-2xl text-center"
             style={{ background: COLORS.card, border: `1px dashed ${COLORS.line}` }}
           >
             <Target size={28} style={{ color: COLORS.sub }} />
@@ -532,13 +533,13 @@ export default function DirectorAnalyticsPage() {
           </div>
         ) : loading ? (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
               <SkeletonGaugeCard />
               <SkeletonGaugeCard />
               <SkeletonGaugeCard />
             </div>
             <SkeletonBarCard />
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
               <SkeletonListCard />
               <SkeletonListCard />
             </div>
@@ -555,10 +556,10 @@ export default function DirectorAnalyticsPage() {
         ) : (
           <>
             {/* Gauge row */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
               {/* Best class */}
               <div
-                className="p-6 rounded-2xl flex flex-col items-center text-center gap-4"
+                className="p-4 sm:p-6 rounded-2xl flex flex-col items-center text-center gap-4"
                 style={{ background: COLORS.card, border: `1px solid ${COLORS.line}` }}
               >
                 <div className="flex items-center gap-2">
@@ -597,7 +598,7 @@ export default function DirectorAnalyticsPage() {
 
               {/* Pass rate */}
               <div
-                className="p-6 rounded-2xl flex flex-col items-center text-center gap-4"
+                className="p-4 sm:p-6 rounded-2xl flex flex-col items-center text-center gap-4"
                 style={{ background: COLORS.card, border: `1px solid ${COLORS.line}` }}
               >
                 <div className="flex items-center gap-2">
@@ -623,7 +624,7 @@ export default function DirectorAnalyticsPage() {
 
               {/* Threshold */}
               <div
-                className="p-6 rounded-2xl flex flex-col items-center text-center gap-4"
+                className="p-4 sm:p-6 rounded-2xl flex flex-col items-center text-center gap-4 sm:col-span-2 md:col-span-1"
                 style={{ background: COLORS.card, border: `1px solid ${COLORS.line}` }}
               >
                 <div className="flex items-center gap-2">
@@ -642,13 +643,13 @@ export default function DirectorAnalyticsPage() {
 
             {/* All sections — passing number bar chart */}
             <div
-              className="p-6 rounded-2xl"
+              className="p-4 sm:p-6 rounded-2xl"
               style={{ background: COLORS.card, border: `1px solid ${COLORS.line}` }}
             >
-              <div className="flex items-center justify-between mb-1">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 mb-1">
                 <div className="flex items-center gap-2">
                   <div
-                    className="w-7 h-7 rounded-lg flex items-center justify-center"
+                    className="w-7 h-7 rounded-lg flex items-center justify-center flex-none"
                     style={{ background: COLORS.amberSoft, color: COLORS.amber }}
                   >
                     <BarChart3 size={14} />
@@ -668,14 +669,16 @@ export default function DirectorAnalyticsPage() {
               </div>
 
               {sortedSections.length ? (
-                <div>
-                  {sortedSections.map((section) => (
-                    <SectionPassBar
-                      key={section.sectionId}
-                      section={section}
-                      maxScore={maxSectionScore}
-                    />
-                  ))}
+                <div className="overflow-x-auto">
+                  <div className="min-w-[320px]">
+                    {sortedSections.map((section) => (
+                      <SectionPassBar
+                        key={section.sectionId}
+                        section={section}
+                        maxScore={maxSectionScore}
+                      />
+                    ))}
+                  </div>
                 </div>
               ) : (
                 <p className="text-sm py-8" style={{ color: COLORS.sub }}>
@@ -685,14 +688,14 @@ export default function DirectorAnalyticsPage() {
             </div>
 
             {/* Course lists */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
               <div
-                className="p-6 rounded-2xl"
+                className="p-4 sm:p-6 rounded-2xl"
                 style={{ background: COLORS.card, border: `1px solid ${COLORS.line}` }}
               >
                 <div className="flex items-center gap-2 mb-1">
                   <div
-                    className="w-7 h-7 rounded-lg flex items-center justify-center"
+                    className="w-7 h-7 rounded-lg flex items-center justify-center flex-none"
                     style={{ background: COLORS.emeraldSoft, color: COLORS.emerald }}
                   >
                     <TrendingUp size={14} />
@@ -716,12 +719,12 @@ export default function DirectorAnalyticsPage() {
               </div>
 
               <div
-                className="p-6 rounded-2xl"
+                className="p-4 sm:p-6 rounded-2xl"
                 style={{ background: COLORS.card, border: `1px solid ${COLORS.line}` }}
               >
                 <div className="flex items-center gap-2 mb-1">
                   <div
-                    className="w-7 h-7 rounded-lg flex items-center justify-center"
+                    className="w-7 h-7 rounded-lg flex items-center justify-center flex-none"
                     style={{ background: COLORS.roseSoft, color: COLORS.rose }}
                   >
                     <TrendingDown size={14} />

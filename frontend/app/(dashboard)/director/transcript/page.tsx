@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import Axios from '@/utils/Axios.js';
 import summeryApi from '@/common/summeryApi';
+import { ScrollText, Search, AlertCircle, Loader2 } from 'lucide-react';
 
 interface CourseTranscriptItem {
     courseId: string;
@@ -43,6 +44,7 @@ export default function StudentTranscriptSearchPage() {
 
     const [searchId, setSearchId] = useState<string>('');
     const [searchLoading, setSearchLoading] = useState<boolean>(false);
+    const [hasSearched, setHasSearched] = useState<boolean>(false);
 
     const handleSearchTranscript = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -53,6 +55,7 @@ export default function StudentTranscriptSearchPage() {
             setSearchLoading(true);
             setErrorMsg(null);
             setTranscript(null);
+            setHasSearched(true);
 
             const apiConfig = summeryApi.getStudentTranscript(targetId);
             const res = await Axios(apiConfig);
@@ -72,8 +75,15 @@ export default function StudentTranscriptSearchPage() {
                 setErrorMsg(res.data?.message || "Student transcript could not be found.");
             }
         } catch (error: any) {
-            console.error("Failed to load student transcript", error);
-            setErrorMsg(error?.response?.data?.message || "Server error while fetching transcript.");
+            const status = error?.response?.status;
+            if (!status || status >= 500) {
+                console.error("Failed to load student transcript", error);
+            }
+
+            setErrorMsg(
+                error?.response?.data?.message ||
+                "Student transcript could not be found with the provided ID."
+            );
         } finally {
             setSearchLoading(false);
         }
@@ -85,7 +95,7 @@ export default function StudentTranscriptSearchPage() {
 
     const preparePageAcademicYears = (category: 'lower' | 'upper', years: AcademicYearTranscript[]) => {
         if (!years || !Array.isArray(years)) return [];
-        
+
         return years.filter(yr => {
             const gradeNum = parseInt(yr.gradeLevel, 10);
             if (isNaN(gradeNum)) return false;
@@ -98,45 +108,85 @@ export default function StudentTranscriptSearchPage() {
     };
 
     return (
-        <div className="min-h-screen bg-[#F4F6FB] py-10 px-2 print:bg-white print:p-0 print:m-0">
-            <div className="max-w-4xl mx-auto space-y-6">
-                
-                <div className="bg-white p-6 rounded-xl shadow-md print:hidden space-y-4 border border-indigo-100">
-                    <div className="flex items-center justify-between border-b pb-3">
-                        <h2 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-                            🔍 Student Transcript Search
-                        </h2>
+        <div className="min-h-screen bg-[#F4F6FB] py-6 sm:py-10 px-3 sm:px-4 print:bg-white print:p-0 print:m-0">
+            <div className="max-w-4xl mx-auto space-y-5 sm:space-y-6">
+
+                {/* Search card */}
+                <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm print:hidden space-y-4 border border-slate-200">
+                    <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+                        <span className="flex items-center justify-center w-8 h-8 rounded-lg bg-[#0a2f2b]/5 text-[#0a2f2b] shrink-0">
+                            <ScrollText size={16} strokeWidth={2} />
+                        </span>
+                        <div>
+                            <h2 className="text-xl font-semibold text-slate-900 tracking-tight">
+                                Student Transcript Search
+                            </h2>
+                            <p className="text-xs text-slate-500 hidden sm:block">
+                                Look up official academic records by student ID
+                            </p>
+                        </div>
                     </div>
-                    <p className="text-xs text-gray-500">Enter student ID to load records directly from the database (e.g., <span className="font-mono text-indigo-600">std/00025/26</span>).</p>
-                    
-                    <form onSubmit={handleSearchTranscript} className="flex gap-3">
-                        <input
-                            type="text"
-                            placeholder="Enter Student ID..."
-                            value={searchId}
-                            onChange={(e) => setSearchId(e.target.value)}
-                            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
-                        />
+
+                    <p className="text-xs text-slate-500">
+                        Enter a student ID to load records directly from the database, e.g.{' '}
+                        <span className="font-mono text-[#0a2f2b] bg-slate-50 px-1.5 py-0.5 rounded border border-slate-200 whitespace-nowrap">
+                            std/00025/26
+                        </span>
+                    </p>
+
+                    <form onSubmit={handleSearchTranscript} className="flex flex-col sm:flex-row gap-2.5 sm:gap-3">
+                        <div className="relative flex-1">
+                            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                            <input
+                                type="text"
+                                placeholder="Enter Student ID..."
+                                value={searchId}
+                                onChange={(e) => setSearchId(e.target.value)}
+                                className="w-full pl-9 pr-4 py-2.5 sm:py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0a2f2b]/30 focus:border-[#0a2f2b] font-mono transition"
+                            />
+                        </div>
                         <button
                             type="submit"
-                            disabled={searchLoading}
-                            className="px-5 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-lg shadow hover:bg-indigo-700 transition disabled:opacity-50"
+                            disabled={searchLoading || !searchId.trim()}
+                            className="w-full sm:w-auto px-5 py-2.5 sm:py-2 bg-[#0a2f2b] text-white text-sm font-medium rounded-lg hover:bg-[#123f3a] active:bg-[#0a2f2b] transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                         >
-                            {searchLoading ? "Searching..." : "Search Transcript"}
+                            {searchLoading ? (
+                                <>
+                                    <Loader2 size={15} className="animate-spin" />
+                                    Searching...
+                                </>
+                            ) : (
+                                "Search"
+                            )}
                         </button>
                     </form>
                 </div>
 
+                {/* Error state */}
                 {errorMsg && (
-                    <div className="p-3 bg-red-50 border border-red-200 text-red-600 text-xs rounded-md print:hidden">
-                        {errorMsg}
+                    <div className="flex items-start gap-2.5 p-3.5 bg-red-50 border border-red-200 text-red-700 text-xs sm:text-sm rounded-lg print:hidden">
+                        <AlertCircle size={16} className="shrink-0 mt-0.5" />
+                        <span>{errorMsg}</span>
+                    </div>
+                )}
+
+                {/* Empty / initial state */}
+                {!transcript && !errorMsg && !searchLoading && !hasSearched && (
+                    <div className="flex flex-col items-center justify-center text-center py-14 sm:py-20 px-4 bg-white rounded-xl border border-dashed border-slate-200 print:hidden">
+                        <span className="flex items-center justify-center w-11 h-11 rounded-full bg-slate-50 text-slate-400 mb-3">
+                            <ScrollText size={20} />
+                        </span>
+                        <p className="text-sm font-medium text-slate-600">No transcript loaded yet</p>
+                        <p className="text-xs text-slate-400 mt-1 max-w-xs">
+                            Search for a student ID above to view and print their academic transcript.
+                        </p>
                     </div>
                 )}
 
                 {transcript && (() => {
                     const page1Years = preparePageAcademicYears('lower', transcript.academicYears);
                     const page2Years = preparePageAcademicYears('upper', transcript.academicYears);
-                    
+
                     const studentPhotoUrl = transcript.student?.studentPhoto || transcript.student?.photo;
                     const sexDisplay = transcript.student?.sex || transcript.student?.studentSex || '';
 
@@ -144,8 +194,9 @@ export default function StudentTranscriptSearchPage() {
                         if (yearsSegment.length === 0) return null;
 
                         return (
-                            <div className="p-8 bg-white shadow-lg rounded-xl space-y-6 text-black border border-gray-200 print:shadow-none print:p-6 print:w-full print:border-none font-serif page-break-after-always" key={pageTitleTag}>
-                                
+                            <div className="overflow-x-auto print:overflow-visible -mx-3 sm:mx-0 px-3 sm:px-0 print:mx-0 print:px-0" key={pageTitleTag}>
+                            <div className="p-8 bg-white shadow-lg rounded-xl space-y-6 text-black border border-gray-200 print:shadow-none print:p-6 print:w-full print:border-none font-serif page-break-after-always min-w-[760px] sm:min-w-0">
+
                                 <div className="flex justify-between items-start border-b-2 border-black pb-3">
                                     <div className="w-16 h-16 flex items-center justify-center text-center font-bold text-[10px]">
                                         <img src="https://res.cloudinary.com/dsjiso86u/image/upload/v1785101664/onismos-removebg-preview_h7hrle.png" alt="onismos" width={50} height={20} className="rounded-sm"/>
@@ -157,9 +208,9 @@ export default function StudentTranscriptSearchPage() {
                                     </div>
                                     <div className="w-20 h-24 flex items-center justify-center overflow-hidden bg-white">
                                         {studentPhotoUrl ? (
-                                            <img 
-                                                src={studentPhotoUrl} 
-                                                alt={transcript.student.fullName} 
+                                            <img
+                                                src={studentPhotoUrl}
+                                                alt={transcript.student.fullName}
                                                 className="w-full h-full object-cover"
                                                 crossOrigin="anonymous"
                                             />
@@ -175,7 +226,7 @@ export default function StudentTranscriptSearchPage() {
 
                                 <div className="text-sm space-y-1.5 border-b border-black pb-4">
                                     <div className="flex items-baseline gap-2">
-                                        <span className="font-semibold">Student's Name:</span> 
+                                        <span className="font-semibold">Student's Name:</span>
                                         <span className="border-b border-dotted border-black flex-1 px-2 font-medium">{transcript.student.fullName}</span>
                                     </div>
                                     <div className="flex gap-8 pt-1">
@@ -318,6 +369,7 @@ export default function StudentTranscriptSearchPage() {
                                     <span>For the generation's success, we are a cause...</span>
                                 </div>
                             </div>
+                            </div>
                         );
                     };
 
@@ -341,6 +393,13 @@ export default function StudentTranscriptSearchPage() {
 
             <style jsx global>{`
                 @media print {
+                    @page {
+                        margin: 0mm;
+                        size: auto;
+                    }
+                    body {
+                        margin: 0mm;
+                    }
                     body * {
                         visibility: hidden;
                     }
